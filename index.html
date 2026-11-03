@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="GastosDiarios — Gestión financiera personal: cuentas, movimientos, presupuestos, reportes, calendario y más.">
-  <meta name="theme-color" content="#10B981">
+  <meta name="theme-color" content="#1F6BFF">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -36,7 +36,7 @@
   </script>
   <style type="text/tailwindcss">
     @layer components {
-      .card { @apply bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800/80 p-6 shadow-[0_1px_2px_rgba(15,23,42,.04),0_18px_40px_-18px_rgba(15,23,42,.18)]; }
+      .card { @apply bg-white dark:bg-[#15161D] rounded-3xl border border-[#EBEBF1] dark:border-white/[0.06] p-6 shadow-[0_1px_2px_rgba(16,16,30,.04),0_10px_30px_-18px_rgba(16,16,30,.14)] dark:shadow-none; }
       .btn-ghost { @apply inline-flex items-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white active:scale-95; }
       /* Botón primario con gradiente de marca */
       .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent/30 transition hover:brightness-110 hover:shadow-xl active:scale-[.98]; background-image: var(--brand-gradient); }
@@ -47,7 +47,8 @@
       .nav-link-active:hover { background-color: transparent; }
       .field { @apply w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-[15px] outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/15; }
       .form-label { @apply block text-[13px] font-medium text-slate-500 dark:text-slate-400 mb-1.5; }
-      .chip { @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold; }
+      .chip { @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 transition; }
+      .chip-active { @apply bg-accent/10 text-accent dark:bg-accent/15; }
       /* Tarjeta teñida con gradiente suave + orbe de glow */
       .card-tint { @apply relative overflow-hidden rounded-3xl border border-slate-200/60 dark:border-slate-800 p-5 transition; }
       .glow-orb { @apply absolute rounded-full opacity-20 blur-2xl pointer-events-none transition-transform duration-500; }
@@ -62,13 +63,13 @@
   <script defer src="vendor/chart.umd.min.js"></script>
 </head>
 
-<body class="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased">
+<body class="min-h-screen text-[#111318] dark:text-slate-100 antialiased">
   <div x-data="app" x-cloak class="min-h-screen">
 
     <!-- Pantalla de bloqueo (PIN) -->
     <div x-show="locked" x-cloak class="fixed inset-0 z-[90] bg-slate-950/90 backdrop-blur-xl grid place-items-center p-4">
       <div class="w-full max-w-xs text-center">
-        <div class="w-16 h-16 mx-auto mb-5 rounded-3xl bg-gradient-to-br from-accent to-emerald-400 text-white grid place-items-center shadow-lg shadow-accent/30">
+        <div class="w-16 h-16 mx-auto mb-5 rounded-3xl bg-gradient-to-br from-accent to-violet-600 text-white grid place-items-center shadow-lg shadow-accent/30">
           <i data-lucide="lock" class="w-8 h-8"></i>
         </div>
         <h2 class="text-xl font-bold mb-1 text-white">App bloqueada</h2>
@@ -88,7 +89,7 @@
 
     <!-- ============ SIDEBAR ============ -->
     <aside
-      class="app-sidebar fixed inset-y-0 left-0 z-50 flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200/70 dark:border-slate-800 transition-all duration-300 lg:translate-x-0"
+      class="app-sidebar fixed inset-y-0 left-0 z-50 flex flex-col bg-[color:var(--bg)] dark:bg-[#0A0B10] transition-all duration-300 lg:translate-x-0"
       :class="[sidebarCollapsed ? 'lg:w-[84px] w-[264px]' : 'w-[264px]', sidebarOpen ? 'translate-x-0' : '-translate-x-full']">
 
       <!-- Logo -->
@@ -111,94 +112,117 @@
         </button>
       </div>
 
-      <!-- Navegación -->
-      <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
-        <template x-for="nav in navItems" :key="nav.id">
-          <button @click="goTo(nav.id)" class="w-full nav-link"
-            :class="[view === nav.id ? 'nav-link-active' : '', sidebarCollapsed ? 'lg:justify-center' : '']"
-            :title="sidebarCollapsed ? nav.label : null">
-            <i :data-lucide="nav.icon" class="w-5 h-5 shrink-0"></i>
-            <span x-show="!sidebarCollapsed" x-text="nav.label"></span>
-          </button>
-        </template>
+      <!-- Saludo -->
+      <div class="px-6 pb-5" x-show="!sidebarCollapsed">
+        <h2 class="text-[26px] leading-tight font-bold tracking-tight">Hola,<br><span x-text="config.brand.name"></span></h2>
+        <p class="mt-1.5 text-xs text-slate-400">Tu resumen financiero actual</p>
+      </div>
+
+      <!-- Navegación (HOME) + bolsillos (POCKET) -->
+      <nav class="flex-1 px-4 overflow-y-auto">
+        <p class="px-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2" x-show="!sidebarCollapsed">Menú</p>
+        <div class="space-y-1">
+          <template x-for="nav in navItems" :key="nav.id">
+            <button @click="goTo(nav.id)"
+              class="w-full flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm font-medium transition"
+              :class="[view === nav.id ? 'text-white shadow-md' : 'text-slate-500 dark:text-slate-400 hover:bg-white/70 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100', sidebarCollapsed ? 'lg:justify-center' : '']"
+              :style="view === nav.id ? 'background:var(--ink)' : ''"
+              :title="sidebarCollapsed ? nav.label : null">
+              <i :data-lucide="nav.icon" class="w-5 h-5 shrink-0"></i>
+              <span x-show="!sidebarCollapsed" x-text="nav.label" class="flex-1 text-left"></span>
+              <i x-show="!sidebarCollapsed && view === nav.id" data-lucide="chevron-right" class="w-4 h-4 shrink-0"></i>
+            </button>
+          </template>
+        </div>
+
+        <!-- Bolsillos (cuentas) -->
+        <div class="mt-6" x-show="!sidebarCollapsed">
+          <div class="flex items-center justify-between px-2.5 mb-2">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Bolsillos</p>
+            <button @click="goTo('cuentas')" class="w-6 h-6 rounded-full bg-accent text-white grid place-items-center transition hover:brightness-110 active:scale-95" aria-label="Gestionar cuentas">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          <div class="space-y-1">
+            <template x-for="a in activeAccounts.slice(0, 4)" :key="a.id">
+              <button @click="goTo('cuentas')" class="w-full flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-white/70 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 transition">
+                <span class="w-7 h-7 rounded-lg grid place-items-center shrink-0" :style="`background:${a.color}1a;color:${a.color}`"><i :data-lucide="a.icon" class="w-4 h-4"></i></span>
+                <span class="flex-1 text-left truncate" x-text="a.name"></span>
+              </button>
+            </template>
+            <template x-if="activeAccounts.length === 0">
+              <p class="px-3 py-2 text-xs text-slate-400">Sin cuentas aún</p>
+            </template>
+          </div>
+        </div>
       </nav>
 
-      <!-- Selector de mes (sidebar) -->
-      <div class="px-4 pb-4" x-show="!sidebarCollapsed">
-        <p class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-2">Mes actual</p>
-        <div class="flex items-center gap-1 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 p-1">
-          <button @click="changeMonth(-1)" class="w-8 h-8 grid place-items-center rounded-xl text-slate-500 transition hover:bg-white dark:hover:bg-slate-700 active:scale-95" title="Mes anterior">
-            <i data-lucide="chevron-left" class="w-4 h-4"></i>
-          </button>
-          <span class="flex-1 text-center text-sm font-semibold tabular-nums" x-text="monthLabel"></span>
-          <button @click="changeMonth(1)" class="w-8 h-8 grid place-items-center rounded-xl text-slate-500 transition hover:bg-white dark:hover:bg-slate-700 active:scale-95" title="Mes siguiente">
-            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+      <!-- Tarjeta promocional (mensaje útil de la app) -->
+      <div class="px-4 pb-5" x-show="!sidebarCollapsed">
+        <div class="relative overflow-hidden rounded-3xl p-5 text-white" style="background:rgb(var(--accent))">
+          <span class="absolute -bottom-8 -right-8 w-28 h-28 rounded-full bg-white/10"></span>
+          <p class="relative text-lg font-bold leading-snug">Organiza tus<br>finanzas</p>
+          <p class="relative mt-1 text-xs text-white/75">Pregúntale a tu asistente IA</p>
+          <button @click="goTo('asistente')" class="relative mt-4 w-10 h-10 rounded-full grid place-items-center text-white transition hover:brightness-125 active:scale-95" style="background:var(--ink)" aria-label="Abrir asistente">
+            <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
           </button>
         </div>
       </div>
 
-      <!-- Perfil / pie -->
-      <div class="px-5 py-5" x-show="!sidebarCollapsed">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full grid place-items-center bg-gradient-to-br from-accent to-emerald-400 text-white text-sm font-bold shrink-0">
-            <span x-text="config.brand.name.slice(0, 2).toUpperCase()"></span>
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold truncate" x-text="config.brand.name"></p>
-            <p class="text-xs text-slate-400 truncate">Datos locales</p>
-          </div>
-          <button @click="openConfig" class="btn-icon w-9 h-9" title="Configuración">
-            <i data-lucide="settings-2" class="w-[18px] h-[18px]"></i>
-          </button>
-        </div>
+      <!-- Colapsado: acceso a configuración -->
+      <div class="px-4 pb-5 hidden" :class="sidebarCollapsed ? 'lg:block' : ''">
+        <button @click="openConfig" class="btn-icon w-10 h-10 mx-auto" title="Configuración"><i data-lucide="settings-2" class="w-5 h-5"></i></button>
       </div>
     </aside>
 
     <!-- ============ CONTENIDO ============ -->
     <div :class="sidebarCollapsed ? 'lg:pl-[84px]' : 'lg:pl-[264px]'">
 
+      <!-- Contenedor principal (shell): blanco-grisáceo, esquinas redondeadas -->
+      <div class="app-shell m-3 lg:my-4 lg:ml-2 lg:mr-4 overflow-hidden min-h-[calc(100dvh-1.5rem)]">
+
       <!-- Topbar -->
-      <header class="app-topbar sticky top-0 z-30 flex items-center gap-3 lg:gap-5 h-16 px-5 lg:px-8 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/70 dark:border-slate-800">
-        <button @click="sidebarOpen = true" class="btn-icon lg:hidden" aria-label="Abrir menú">
+      <header class="app-topbar relative z-30 flex items-center gap-3 h-[76px] px-4 lg:px-6">
+        <button @click="sidebarOpen = true" class="circle-btn w-10 h-10 lg:hidden shrink-0" aria-label="Abrir menú">
           <i data-lucide="menu" class="w-5 h-5"></i>
         </button>
 
-        <h1 class="text-lg font-bold tracking-tight truncate" x-text="showConfig ? 'Configuración' : activeLabel"></h1>
+        <!-- Pestañas tipo pill (navegación principal) -->
+        <nav class="flex-1 min-w-0 overflow-x-auto no-scrollbar">
+          <div class="flex items-center gap-2 w-max">
+            <template x-for="nav in navItems" :key="nav.id">
+              <button @click="goTo(nav.id)" class="pill" :class="(view === nav.id && !showConfig) ? 'pill-active' : ''">
+                <i :data-lucide="nav.icon" class="w-4 h-4"></i>
+                <span x-text="nav.label"></span>
+              </button>
+            </template>
+          </div>
+        </nav>
 
-        <div class="flex-1"></div>
-
-        <!-- Selector de mes -->
-        <div class="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-full p-1">
-          <button @click="changeMonth(-1)" class="w-8 h-8 grid place-items-center rounded-full text-slate-500 transition hover:bg-white dark:hover:bg-slate-700 active:scale-95" aria-label="Mes anterior">
-            <i data-lucide="chevron-left" class="w-4 h-4"></i>
-          </button>
-          <span class="text-sm font-semibold w-36 text-center tabular-nums" x-text="monthLabel"></span>
-          <button @click="changeMonth(1)" class="w-8 h-8 grid place-items-center rounded-full text-slate-500 transition hover:bg-white dark:hover:bg-slate-700 active:scale-95" aria-label="Mes siguiente">
-            <i data-lucide="chevron-right" class="w-4 h-4"></i>
-          </button>
+        <!-- Selector de mes (compacto) -->
+        <div class="hidden xl:flex items-center gap-1 rounded-full p-1 shrink-0" style="background:var(--surface-2)">
+          <button @click="changeMonth(-1)" class="w-7 h-7 grid place-items-center rounded-full text-slate-500 transition hover:bg-white dark:hover:bg-slate-700 active:scale-95" aria-label="Mes anterior"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+          <span class="text-xs font-semibold w-24 text-center tabular-nums" x-text="monthLabel"></span>
+          <button @click="changeMonth(1)" class="w-7 h-7 grid place-items-center rounded-full text-slate-500 transition hover:bg-white dark:hover:bg-slate-700 active:scale-95" aria-label="Mes siguiente"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
         </div>
 
-        <!-- Búsqueda global -->
-        <button @click="openGlobalSearch" class="btn-icon" title="Buscar en todo ( / )" aria-label="Buscar en todo">
-          <i data-lucide="search" class="w-5 h-5"></i>
-        </button>
-
-        <!-- Búsqueda rápida -->
-        <div class="hidden xl:flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-full px-4 h-10 w-56 transition focus-within:ring-4 focus-within:ring-accent/15 focus-within:bg-white dark:focus-within:bg-slate-800">
-          <i data-lucide="search" class="w-4 h-4 text-slate-400 shrink-0"></i>
-          <input type="text" x-model="search" placeholder="Buscar movimientos…" @focus="goTo('movimientos')"
-            class="flex-1 bg-transparent outline-none text-sm placeholder:text-slate-400 min-w-0">
-        </div>
-
-        <!-- Ocultar/revelar montos -->
-        <button x-show="state.privacy.hideAmounts" @click="revealAmounts = !revealAmounts" class="btn-icon" :title="revealAmounts ? 'Ocultar montos' : 'Mostrar montos'" aria-label="Revelar montos">
-          <i :data-lucide="revealAmounts ? 'eye-off' : 'eye'" class="w-5 h-5"></i>
-        </button>
+        <!-- Acciones derechas -->
+        <div class="flex items-center gap-2 shrink-0">
+          <button x-show="state.privacy.hideAmounts" @click="revealAmounts = !revealAmounts" class="circle-btn w-10 h-10" :title="revealAmounts ? 'Ocultar montos' : 'Mostrar montos'" aria-label="Revelar montos">
+            <i :data-lucide="revealAmounts ? 'eye-off' : 'eye'" class="w-[18px] h-[18px]"></i>
+          </button>
+          <button @click="mode = isDark ? 'light' : 'dark'" class="circle-btn w-10 h-10" :aria-label="isDark ? 'Activar modo claro' : 'Activar modo oscuro'">
+            <i x-show="!isDark" data-lucide="moon" class="w-[18px] h-[18px]"></i>
+            <i x-show="isDark" data-lucide="sun" class="w-[18px] h-[18px]"></i>
+          </button>
+          <button @click="openConfig" class="circle-btn w-10 h-10" aria-label="Configuración">
+            <i data-lucide="settings" class="w-[18px] h-[18px]"></i>
+          </button>
 
         <!-- Notificaciones -->
         <div class="relative">
-          <button @click="notifOpen = !notifOpen; profileOpen = false" class="btn-icon relative" aria-label="Notificaciones">
-            <i data-lucide="bell" class="w-5 h-5"></i>
+          <button @click="notifOpen = !notifOpen; profileOpen = false" class="circle-btn w-10 h-10 relative" aria-label="Notificaciones">
+            <i data-lucide="bell" class="w-[18px] h-[18px]"></i>
             <span x-show="alertCount > 0" x-cloak
               class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold grid place-items-center"
               x-text="alertCount"></span>
@@ -225,9 +249,13 @@
 
         <!-- Perfil -->
         <div class="relative">
-          <button @click="profileOpen = !profileOpen; notifOpen = false" class="flex items-center gap-2 rounded-full p-1 pr-2.5 transition hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95">
-            <span class="w-9 h-9 rounded-full grid place-items-center bg-gradient-to-br from-accent to-emerald-400 text-white text-sm font-bold">
+          <button @click="profileOpen = !profileOpen; notifOpen = false" class="flex items-center gap-2.5 rounded-full p-1 sm:pr-3 transition hover:bg-[color:var(--surface-2)] active:scale-95">
+            <span class="w-9 h-9 rounded-full grid place-items-center bg-accent text-white text-sm font-bold shrink-0">
               <span x-text="config.brand.name.slice(0, 2).toUpperCase()"></span>
+            </span>
+            <span class="hidden sm:block text-left leading-tight">
+              <span class="block text-sm font-semibold truncate max-w-[130px]" x-text="config.brand.name"></span>
+              <span class="block text-xs text-slate-400">Datos locales</span>
             </span>
             <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 hidden sm:block"></i>
           </button>
@@ -247,9 +275,10 @@
             </label>
           </div>
         </div>
+        </div><!-- /acciones derechas -->
       </header>
 
-      <main class="app-main px-5 lg:px-8 py-6 lg:py-8 space-y-8">
+      <main class="app-main px-5 lg:px-8 pb-6 lg:pb-8 space-y-8">
 
         <!-- Vistas: se cargan desde /views (loadPartials) y solo se muestra la activa. -->
         <div x-show="!showConfig" class="space-y-8">
@@ -274,6 +303,7 @@
           Tus datos se guardan localmente en tu navegador · <button @click="doExport" class="font-medium hover:text-accent">Exportar respaldo</button>
         </footer>
       </main>
+      </div><!-- /app-shell -->
     </div>
 
     <!-- ============ BOTÓN FLOTANTE (FAB) ============ -->

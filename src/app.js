@@ -259,6 +259,10 @@ document.addEventListener('alpine:init', () => {
     // cada minuto en init() para que las etiquetas se actualicen solas.
     _now: Date.now(),
 
+    // ¿La app está renderizando en modo oscuro? (contempla 'system').
+    // Lo usa el toggle claro/oscuro del topbar.
+    get isDark() { return isDarkMode(this.mode); },
+
     // ============================================================
     init() {
       // Refresca el reloj reactivo cada minuto (tiempos relativos "hace N min").
@@ -613,6 +617,80 @@ document.addEventListener('alpine:init', () => {
         cat: this.category(e.category),
         acct: this.account(e.account),
       }));
+    },
+
+    // ============================================================
+    //  Datos del dashboard bento (diseño de referencia)
+    // ============================================================
+
+    // ISO local de hoy (sin desfase de zona horaria).
+    get _todayISO() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+
+    // Ingresos registrados hoy + variación vs. el mismo día del mes anterior.
+    get incomeToday() {
+      const today = this._todayISO;
+      const amount = stats.sum(this.state.income.filter((i) => i.date === today));
+      const d = new Date();
+      const prev = new Date(d.getFullYear(), d.getMonth() - 1, d.getDate());
+      const prevISO = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}-${String(prev.getDate()).padStart(2, '0')}`;
+      const prevAmount = stats.sum(this.state.income.filter((i) => i.date === prevISO));
+      const change = stats.pctChange(amount, prevAmount);
+      return { amount, change };
+    },
+
+    // Matriz de intensidad de gasto: filas = categorías top, columnas = días de la
+    // semana (D L M X J V S). Nivel 0-3 según el gasto de esa categoría ese día del mes.
+    get weekdayHeatmap() {
+      const cats = this.breakdown.slice(0, 3).map((b) => b.cat);
+      const rows = cats.map((cat) => {
+        const cells = Array.from({ length: 7 }, () => 0);
+        this.monthExpenses
+          .filter((e) => e.category === cat.id)
+          .forEach((e) => {
+            const [y, m, day] = e.date.split('-').map(Number);
+            const wd = new Date(y, m - 1, day).getDay(); // 0=Dom … 6=Sáb
+            cells[wd] += e.amount;
+          });
+        return { cat, cells };
+      });
+      const max = Math.max(1, ...rows.flatMap((r) => r.cells));
+      const level = (v) => (v <= 0 ? 0 : v / max < 0.34 ? 1 : v / max < 0.67 ? 2 : 3);
+      return rows.map((r) => ({
+        cat: r.cat,
+        cells: r.cells.map((v) => ({ amount: v, level: level(v), peak: v > 0 && v === Math.max(...r.cells) })),
+      }));
+    },
+
+    // Fuentes de ingreso del mes, agrupadas por cuenta destino (barras del dashboard).
+    get incomeSources() {
+      const byAcct = [...stats.groupSum(this.monthIncome, (i) => i.account).entries()]
+        .map(([id, amount]) => ({ acct: this.account(id), amount }))
+        .filter((r) => r.amount > 0)
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 5);
+      const max = Math.max(1, ...byAcct.map((r) => r.amount));
+      const prev = this.prevTotals.income;
+      return {
+        rows: byAcct.map((r, i) => ({ ...r, pct: (r.amount / max) * 100, variant: i % 3 })),
+        total: this.totalIncome,
+        change: stats.pctChange(this.totalIncome, prev),
+      };
+    },
+
+    // Salud financiera: tasa de ahorro del mes (ahorro / ingresos), 0-100.
+    get healthPct() {
+      if (this.totalIncome <= 0) return 0;
+      return Math.max(0, Math.min(100, Math.round((this.savings / this.totalIncome) * 100)));
+    },
+
+    // Marcas del medidor semicircular (gauge) del dashboard.
+    get gaugeTicks() {
+      const N = 40;
+      const on = Math.round((this.healthPct / 100) * N);
+      return Array.from({ length: N }, (_, i) => ({ angle: -90 + i * (180 / (N - 1)), on: i < on }));
     },
 
     get allBudgetRows() {
@@ -2257,11 +2335,19 @@ document.addEventListener('alpine:init', () => {
 
     renderCharts() {
       if (!window.Chart) return;
+      // Dibujo síncrono (sin animación): cada chart se renderiza al instante en
+      // update() en vez de depender del bucle RAF compartido del animador de
+      // Chart.js. Ese bucle se rompía cuando quedaba una instancia huérfana
+      // (canvas null tras destroy / cambio de vista): lanzaba "getContext null"
+      // y abortaba el dibujo de TODOS los gráficos, dejándolos en blanco.
+      Chart.defaults.animation = false;
       const self = this;
       const dark = isDarkMode(this.mode);
       const txt = dark ? '#CBD5E1' : '#64748B';
       const grid = dark ? 'rgba(148,163,184,.12)' : 'rgba(15,23,42,.06)';
       const accentRgb = hexToRgb(this.accent);
+      // Verde de acento para ingresos/crecimiento (eléctrico en oscuro, legible en claro).
+      const positiveRgb = dark ? '57 231 95' : '34 197 94';
 
       const centerText = {
         id: 'centerText',
@@ -2313,7 +2399,7 @@ document.addEventListener('alpine:init', () => {
           datasets: [{
             data: this.breakdown.map((b) => b.amount),
             backgroundColor: this.breakdown.map((b) => b.cat.color),
-            borderColor: dark ? '#0F172A' : '#FFFFFF',
+            borderColor: dark ? '#15161D' : '#FFFFFF',
             borderWidth: 3, hoverOffset: 6, spacing: 2,
           }],
         }, {
@@ -2331,8 +2417,8 @@ document.addEventListener('alpine:init', () => {
         const g = document.getElementById(id)?.getContext('2d');
         if (!g) return null;
         const grad = g.createLinearGradient(0, 0, 0, 260);
-        grad.addColorStop(0, `rgb(${accentRgb} / .35)`);
-        grad.addColorStop(1, `rgb(${accentRgb} / 0)`);
+        grad.addColorStop(0, `rgb(${positiveRgb} / .35)`);
+        grad.addColorStop(1, `rgb(${positiveRgb} / 0)`);
         return grad;
       })('chart-overview');
       const expGrad = ((id) => {
@@ -2347,7 +2433,7 @@ document.addEventListener('alpine:init', () => {
       this._chart('chart-overview', 'line', {
         labels: ov.map((m) => m.label),
         datasets: [
-          { label: 'Ingresos', data: ov.map((m) => m.income), borderColor: `rgb(${accentRgb})`, backgroundColor: incGrad, fill: true, tension: 0.45, borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: `rgb(${accentRgb})` },
+          { label: 'Ingresos', data: ov.map((m) => m.income), borderColor: `rgb(${positiveRgb})`, backgroundColor: incGrad, fill: true, tension: 0.45, borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: `rgb(${positiveRgb})` },
           { label: 'Gastos', data: ov.map((m) => m.expenses), borderColor: '#F43F5E', backgroundColor: expGrad, fill: true, tension: 0.45, borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: '#F43F5E' },
         ],
       }, {
@@ -2357,7 +2443,7 @@ document.addEventListener('alpine:init', () => {
       });
 
       // --- Reportes ---
-      this._reportCharts(tooltip, scales, accentRgb, dark);
+      this._reportCharts(tooltip, scales, accentRgb, dark, positiveRgb);
 
       // --- Patrimonio: evolución estimada ---
       const ps = this.patrimonioSeries;
@@ -2403,7 +2489,7 @@ document.addEventListener('alpine:init', () => {
       return months;
     },
 
-    _reportCharts(tooltip, scales, accentRgb, dark) {
+    _reportCharts(tooltip, scales, accentRgb, dark, positiveRgb) {
       const self = this;
 
       if (this.reportByCategory.length) {
@@ -2412,7 +2498,7 @@ document.addEventListener('alpine:init', () => {
           datasets: [{
             data: this.reportByCategory.map((b) => b.amount),
             backgroundColor: this.reportByCategory.map((b) => b.cat.color),
-            borderColor: dark ? '#0F172A' : '#FFFFFF',
+            borderColor: dark ? '#15161D' : '#FFFFFF',
             borderWidth: 3, hoverOffset: 6, spacing: 2,
           }],
         }, {
@@ -2428,7 +2514,7 @@ document.addEventListener('alpine:init', () => {
       this._chart('chart-ivg', 'bar', {
         labels: rs.map((m) => m.label),
         datasets: [
-          { label: 'Ingresos', data: rs.map((m) => m.income), backgroundColor: `rgb(${accentRgb} / .85)`, borderRadius: 8, borderSkipped: false },
+          { label: 'Ingresos', data: rs.map((m) => m.income), backgroundColor: `rgb(${positiveRgb} / .85)`, borderRadius: 8, borderSkipped: false },
           { label: 'Gastos', data: rs.map((m) => m.expenses), backgroundColor: 'rgba(244, 63, 94, .85)', borderRadius: 8, borderSkipped: false },
         ],
       }, {

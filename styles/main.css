@@ -1,15 +1,78 @@
 /* Variables de tema, scrollbars, animaciones e impresión. */
 
 :root {
-  --accent: 16 185 129; /* lo sobreescribe theme.config.js / el panel */
+  --accent: 136 117 245; /* morado de marca #8875F5 — lo sobreescribe theme.config.js / el panel */
   --rose: #e11d48;
   --amber: #f59e0b;
 
+  /* Verde de acento: indicadores positivos, crecimiento e ingresos. */
+  --positive: 34 197 94;        /* #22C55E — verde legible sobre superficies claras */
+  --positive-soft: #E5F8E9;
+
+  /* ===== Paleta bento (modo claro) ===== */
+  --bg: #EEF0F2;                /* fondo gris de la página */
+  --surface: #FFFFFF;           /* tarjetas y superficies */
+  --surface-2: #F3F4F6;         /* superficies internas sutiles */
+  --panel: #F7F8FA;             /* contenedor/plano del shell (sidebar) */
+  --ink: #111318;              /* negro de tarjetas oscuras y pastilla activa */
+  --primary-soft: #E7EEFF;      /* azul suave */
+  --text: #111318;             /* texto principal */
+  --text-muted: #8A8F98;        /* texto secundario */
+  --border: #E7E9EE;            /* bordes */
+
+  /* Radios y sombras del sistema bento */
+  --radius-container: 28px;     /* contenedor principal blanco */
+  --radius-bento: 24px;         /* tarjetas del grid */
+  --radius-pill: 999px;
+  --shadow-bento: 0 1px 2px rgba(17,19,24,.04), 0 12px 30px -20px rgba(17,19,24,.18);
+  --shadow-bento-hover: 0 2px 6px rgba(17,19,24,.06), 0 20px 40px -22px rgba(17,19,24,.26);
+
+  /* Niveles de intensidad de la matriz de gasto (heatmap) */
+  --dot-0: #E8EAEE;             /* sin gasto / gris claro */
+  --dot-1: #AFC6FF;             /* bajo — azul claro */
+  --dot-2: rgb(var(--accent));  /* medio — azul */
+  --dot-3: #111318;             /* alto — negro */
+
   /* Gradiente de marca derivado del acento (color-mix): funciona con cualquier acento. */
   --accent-grad-from: rgb(var(--accent));
-  --accent-grad-to: color-mix(in oklab, rgb(var(--accent)) 55%, #7c3aed);
+  --accent-grad-to: color-mix(in oklab, rgb(var(--accent)) 60%, #5b3fe0);
   --brand-gradient: linear-gradient(135deg, var(--accent-grad-from), var(--accent-grad-to));
 }
+
+/* ===== Paleta bento (modo oscuro) — carbón + verde eléctrico ===== */
+.dark {
+  --positive: 57 231 95;        /* #39E75F — verde eléctrico de acento */
+  --positive-soft: rgba(57, 231, 95, 0.14);
+
+  --bg: #0A0B10;                /* fondo negro/carbón muy oscuro */
+  --surface: #15161D;           /* tarjetas en tono carbón */
+  --surface-2: #1B1D26;         /* superficies internas */
+  --panel: #0E0F15;             /* plano del shell */
+  --ink: #000000;              /* tarjetas "negras": negro puro sobre carbón */
+  --primary-soft: rgba(31, 107, 255, 0.18);
+  --text: #F4F4F6;             /* texto claro */
+  --text-muted: #9A9AAB;        /* texto gris claro */
+  --border: rgba(255, 255, 255, 0.06);
+
+  --shadow-bento: none;
+  --shadow-bento-hover: 0 20px 40px -22px rgba(0,0,0,.6);
+  --dot-0: #23252E;
+  --dot-1: #2E4A86;
+  --dot-3: #000000;
+}
+
+/* Fondo y color de texto base controlados por la paleta (exactitud cromática) */
+body {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+/* Selección de texto con el morado de marca */
+::selection { background: rgb(var(--accent) / 0.22); }
+
+/* Pequeña utilidad para el verde de acento (crecimiento / positivo) */
+.text-positive { color: rgb(var(--positive)); }
+.bg-positive { background-color: rgb(var(--positive)); }
 
 [x-cloak] { display: none !important; }
 
@@ -81,6 +144,95 @@ input[type="color"] {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   SISTEMA BENTO (diseño de referencia)
+   Clases reutilizables; las utilidades puntuales siguen en Tailwind.
+   ============================================================ */
+
+/* Contenedor principal blanco-grisáceo con esquinas muy redondeadas */
+.app-shell {
+  background: var(--panel);
+  border-radius: var(--radius-container);
+  box-shadow: var(--shadow-bento);
+}
+.dark .app-shell { box-shadow: none; border: 1px solid var(--border); }
+
+/* Oculta la barra de scroll de las pestañas horizontales */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Tarjeta del grid bento */
+.bento {
+  background: var(--surface);
+  border-radius: var(--radius-bento);
+  box-shadow: var(--shadow-bento);
+  transition: box-shadow .25s cubic-bezier(.22,1,.36,1), transform .25s cubic-bezier(.22,1,.36,1);
+}
+.bento:hover { box-shadow: var(--shadow-bento-hover); transform: translateY(-2px); }
+
+/* Tarjeta negra (reporte / banner) */
+.bento-dark {
+  background: var(--ink);
+  color: #fff;
+  border-radius: var(--radius-bento);
+  box-shadow: var(--shadow-bento);
+  position: relative;
+  overflow: hidden;
+}
+.bento-dark::after {        /* textura sutil de gradiente */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 80% at 85% 0%, rgba(255,255,255,.10), transparent 55%);
+}
+
+/* Pastillas (tabs, selectores, filtros) */
+.pill {
+  display: inline-flex; align-items: center; gap: .4rem;
+  border-radius: var(--radius-pill);
+  padding: .5rem .9rem; font-size: .8125rem; font-weight: 600;
+  color: var(--text-muted); background: var(--surface-2);
+  white-space: nowrap; transition: background .2s, color .2s, box-shadow .2s;
+}
+.pill:hover { color: var(--text); }
+.pill-active { background: rgb(var(--accent)); color: #fff; box-shadow: 0 6px 16px -8px rgb(var(--accent) / .7); }
+.pill-ink { background: var(--ink); color: #fff; }
+.pill-ghost { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+
+/* Botón circular */
+.circle-btn {
+  display: inline-grid; place-items: center;
+  width: 2.5rem; height: 2.5rem; border-radius: 999px;
+  background: var(--surface-2); color: var(--text-muted);
+  transition: background .2s, color .2s, transform .1s;
+}
+.circle-btn:hover { color: var(--text); background: var(--border); }
+.circle-btn:active { transform: scale(.94); }
+
+/* Matriz de gasto (heatmap de círculos) */
+.heat-dot { width: 2.25rem; height: 2.25rem; border-radius: 999px; background: var(--dot-0); }
+.heat-dot.l1 { background: var(--dot-1); }
+.heat-dot.l2 { background: var(--dot-2); }
+.heat-dot.l3 { background: var(--dot-3); }
+.heat-dot.peak { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.55) 0 2px, transparent 2px 5px); }
+
+/* Relleno con rayas diagonales (barras especiales) */
+.diag-stripe { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.22) 0 3px, transparent 3px 7px); }
+
+/* Barra vertical del gráfico de ingresos */
+.vbar { border-radius: 12px 12px 6px 6px; }
+
+/* Medidor semicircular segmentado (gauge) — ticks en HTML, no SVG,
+   porque Alpine no puede generar nodos SVG con el namespace correcto. */
+.gauge { position: relative; width: 100%; max-width: 260px; height: 132px; margin: 0 auto; }
+.gauge-tick {
+  position: absolute; left: 50%; bottom: 4px; width: 4px; height: 96px;
+  transform-origin: bottom center;
+}
+.gauge-tick > i {
+  position: absolute; top: 0; left: 0; display: block;
+  width: 4px; height: 18px; border-radius: 999px; background: var(--dot-0);
+}
+.gauge-tick.on > i { background: rgb(var(--accent)); }
 
 /* Safe-area (notch / home indicator) para la PWA en móvil. En escritorio vale 0. */
 .app-topbar { padding-top: env(safe-area-inset-top); }
