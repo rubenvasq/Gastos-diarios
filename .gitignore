@@ -3,5 +3,9 @@ node_modules/
 Thumbs.db
 *.log
 
-# Dev/IDE (no publicar)
+# Dev/IDE y tooling de IA (no publicar)
 .claude/
+.agents/
+.codex/
+.github/
+skills-lock.json
