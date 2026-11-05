@@ -4,6 +4,7 @@ import * as stats from './stats.js';
 import * as fin from './finance.js';
 import * as validation from './validation.js';
 import * as backup from './backup.js';
+import * as auth from './auth.js';
 import { downloadJSON, downloadCSV, downloadText } from './export.js';
 import { createBridge } from './agent/bridge.js';
 import { gastosTools } from './agent/tools.js';
@@ -236,6 +237,31 @@ document.addEventListener('alpine:init', () => {
     pinDraft: '',
     revealAmounts: false,
 
+    // ---- Bienvenida (solo primera instalación) ----
+    onboarded: localStorage.getItem('gd-onboarded') === '1',
+    onboardStep: 0,
+    onboardSlides: [
+      { icon: 'wallet', title: 'Bienvenido a GastosDiarios', text: 'Controla tus finanzas sin complicarte: cuentas, gastos, presupuestos y metas en un solo lugar.' },
+      { icon: 'shield-check', title: 'Tus datos son solo tuyos', text: 'Todo se guarda en este dispositivo. Nada se sube a internet sin tu permiso.' },
+      { icon: 'sparkles', title: 'Un asistente que entiende tus finanzas', text: 'Pregúntale sobre tus gastos, pídele que registre movimientos y recibe ideas automáticas.' },
+      { icon: 'target', title: 'Metas, presupuestos y reportes', text: 'Visualiza tu progreso, controla tu presupuesto mensual y alcanza tus metas de ahorro.' },
+    ],
+
+    // ---- Autenticación local (sin backend; ver src/auth.js) ----
+    // `hasLocalAccount` se guarda como campo plano (no getter) porque se
+    // actualiza tras register()/removeLocalAccount(); se lee una sola vez
+    // de disco al crear el componente, igual que `state`.
+    hasLocalAccount: auth.hasAccount(),
+    authed: false, // se decide en init() (sesión por localStorage 'gd-authed')
+    authScreen: 'login', // 'login' | 'register' | 'forgot' | 'recovery-reveal'
+    authForm: { username: '', password: '', password2: '', recoveryCode: '', newPassword: '' },
+    authError: '',
+    authBusy: false,
+    authOverwritePending: false, // true cuando el registro chocó con una cuenta existente y se ofrece reemplazarla
+    recoveryCodeToShow: '',
+    accountPwForm: { current: '', next: '' },
+    accountPwError: '',
+
     // ---- Apariencia ----
     accent: config.theme.accent,
     mode: localStorage.getItem('gd-mode') || config.theme.defaultMode,
@@ -263,8 +289,16 @@ document.addEventListener('alpine:init', () => {
     // Lo usa el toggle claro/oscuro del topbar.
     get isDark() { return isDarkMode(this.mode); },
 
+    // Usuario de la cuenta local (null si no existe cuenta en este dispositivo).
+    get accountUsername() { return auth.accountUsername(); },
+
     // ============================================================
     init() {
+      // Gate de autenticación: pantalla inicial según si ya hay cuenta local
+      // y si la sesión sigue activa (flag 'gd-authed' en localStorage).
+      this.authScreen = this.hasLocalAccount ? 'login' : 'register';
+      this.authed = this.hasLocalAccount && localStorage.getItem('gd-authed') === '1';
+
       // Refresca el reloj reactivo cada minuto (tiempos relativos "hace N min").
       setInterval(() => { this._now = Date.now(); }, 60000);
 
@@ -1063,6 +1097,38 @@ document.addEventListener('alpine:init', () => {
       });
     },
 
+    // Habilita arrastrar con el mouse (click + drag) y la rueda vertical para
+    // desplazar horizontalmente un contenedor con overflow-x: en PC no hay
+    // gesto táctil ni scrollbar visible (no-scrollbar), así que sin esto la
+    // barra de pestañas queda inmovible cuando hay más pestañas de las que
+    // caben en pantalla.
+    dragScroll(el) {
+      let isDown = false, startX = 0, startScroll = 0, moved = false;
+      el.addEventListener('wheel', (e) => {
+        if (el.scrollWidth <= el.clientWidth) return;
+        e.preventDefault();
+        el.scrollLeft += e.deltaY !== 0 ? e.deltaY : e.deltaX;
+      }, { passive: false });
+      el.addEventListener('mousedown', (e) => {
+        if (el.scrollWidth <= el.clientWidth) return;
+        isDown = true; moved = false;
+        startX = e.pageX; startScroll = el.scrollLeft;
+        el.classList.add('cursor-grabbing');
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        const dx = e.pageX - startX;
+        if (Math.abs(dx) > 3) moved = true;
+        el.scrollLeft = startScroll - dx;
+      });
+      window.addEventListener('mouseup', () => {
+        isDown = false;
+        el.classList.remove('cursor-grabbing');
+      });
+      // Evita que el click de un pill se dispare al final de un arrastre.
+      el.addEventListener('click', (e) => { if (moved) e.stopPropagation(); }, true);
+    },
+
     // Configuración: página aparte con su propia URL (#config), accesible
     // desde el desplegable del perfil. Al usar el hash se comporta como una
     // página real: cambia la URL, funciona el botón "atrás" y persiste al recargar.
@@ -1497,6 +1563,143 @@ document.addEventListener('alpine:init', () => {
       this._save();
     },
 
+    // ============================================================
+    // Autenticación local (login / registro / reset) — ver src/auth.js.
+    // Sin backend: la "sesión" es un flag en localStorage ('gd-authed'),
+    // igual patrón que 'gd-locked' del PIN. Los datos financieros NO
+    // dependen de esto; solo es un gate visual antes de usar la app.
+    // ============================================================
+    finishOnboarding() {
+      this.onboarded = true;
+      localStorage.setItem('gd-onboarded', '1');
+      this.authScreen = this.hasLocalAccount ? 'login' : 'register';
+    },
+
+    switchAuthScreen(screen) {
+      this.authScreen = screen;
+      this.authError = '';
+      this.authOverwritePending = false;
+      this.authForm = { username: '', password: '', password2: '', recoveryCode: '', newPassword: '' };
+      this.$nextTick(refreshIcons);
+    },
+
+    async submitRegister() {
+      const f = this.authForm;
+      if (f.password !== f.password2) {
+        this.authError = 'Las contraseñas no coinciden.';
+        return;
+      }
+      this.authError = '';
+      this.authOverwritePending = false;
+      this.authBusy = true;
+      try {
+        const r = await auth.register(f.username, f.password);
+        if (!r.ok) {
+          // Ya hay una cuenta local: en vez de bloquear, se ofrece reemplazarla
+          // (requiere confirmación explícita porque descarta las credenciales
+          // anteriores; los datos financieros no se ven afectados).
+          if (this.hasLocalAccount) { this.authOverwritePending = true; return; }
+          this.authError = r.error;
+          return;
+        }
+        this.hasLocalAccount = true;
+        this.recoveryCodeToShow = r.recoveryCode;
+        this.authScreen = 'recovery-reveal';
+        this.$nextTick(refreshIcons);
+      } finally {
+        this.authBusy = false;
+      }
+    },
+
+    // Reemplaza la cuenta local existente por la del formulario de registro
+    // actual. Solo se llama tras la confirmación explícita del usuario.
+    async confirmOverwriteAccount() {
+      const f = this.authForm;
+      this.authOverwritePending = false;
+      this.authBusy = true;
+      try {
+        auth.removeLocalAccount();
+        const r = await auth.register(f.username, f.password);
+        if (!r.ok) { this.authError = r.error; return; }
+        this.hasLocalAccount = true;
+        this.recoveryCodeToShow = r.recoveryCode;
+        this.authScreen = 'recovery-reveal';
+        this.$nextTick(refreshIcons);
+      } finally {
+        this.authBusy = false;
+      }
+    },
+
+    async submitLogin() {
+      const f = this.authForm;
+      this.authError = '';
+      this.authBusy = true;
+      try {
+        const r = await auth.login(f.username, f.password);
+        if (!r.ok) { this.authError = r.error; return; }
+        this.completeLogin();
+      } finally {
+        this.authBusy = false;
+      }
+    },
+
+    async submitReset() {
+      const f = this.authForm;
+      this.authError = '';
+      this.authBusy = true;
+      try {
+        const r = await auth.resetWithRecoveryCode(f.recoveryCode, f.newPassword);
+        if (!r.ok) { this.authError = r.error; return; }
+        this.recoveryCodeToShow = r.recoveryCode;
+        this.authScreen = 'recovery-reveal';
+        this.$nextTick(refreshIcons);
+      } finally {
+        this.authBusy = false;
+      }
+    },
+
+    completeLogin() {
+      this.authed = true;
+      localStorage.setItem('gd-authed', '1');
+      this.recoveryCodeToShow = '';
+      this.authForm = { username: '', password: '', password2: '', recoveryCode: '', newPassword: '' };
+    },
+
+    copyRecoveryCode() {
+      if (!this.recoveryCodeToShow) return;
+      navigator.clipboard?.writeText(this.recoveryCodeToShow).then(
+        () => this.notify('Código copiado al portapapeles.'),
+        () => this.notify('No se pudo copiar. Cópialo manualmente.')
+      );
+    },
+
+    logout() {
+      this.authed = false;
+      localStorage.removeItem('gd-authed');
+      this.authScreen = 'login';
+      this.profileOpen = false;
+      this.notify('Sesión cerrada.');
+    },
+
+    async submitChangePassword() {
+      const f = this.accountPwForm;
+      this.accountPwError = '';
+      const r = await auth.changePassword(f.current, f.next);
+      if (!r.ok) { this.accountPwError = r.error; return; }
+      this.accountPwForm = { current: '', next: '' };
+      this.notify('Contraseña actualizada.');
+    },
+
+    deleteLocalAccount() {
+      this.openConfirm('¿Eliminar la cuenta de este dispositivo? Tus datos financieros NO se borran, pero deberás crear una cuenta nueva para volver a entrar.', () => {
+        auth.removeLocalAccount();
+        this.hasLocalAccount = false;
+        this.logout();
+        this.authScreen = 'register';
+        this.notify('Cuenta local eliminada.');
+      }, 'danger');
+    },
+
     toggleAmountsHidden() {
       this.state.privacy.hideAmounts = !this.state.privacy.hideAmounts;
       this.revealAmounts = false;
@@ -1549,7 +1752,8 @@ document.addEventListener('alpine:init', () => {
     deleteAccount(account) {
       const hasTx = this.state.expenses.some((e) => e.account === account.id)
         || this.state.income.some((i) => i.account === account.id)
-        || this.state.transfers.some((t) => t.from === account.id || t.to === account.id);
+        || this.state.transfers.some((t) => t.from === account.id || t.to === account.id)
+        || this.state.recurring.some((r) => r.account === account.id);
       if (hasTx) return this.notify('No puedes eliminar una cuenta con movimientos. Reasigna sus movimientos primero.');
       this.openConfirm(`¿Eliminar la cuenta "${account.name}"?`, () => {
         this.state.accounts = this.state.accounts.filter((a) => a.id !== account.id);
@@ -1602,8 +1806,9 @@ document.addEventListener('alpine:init', () => {
     },
 
     deleteCategory(cat) {
-      const used = this.categoryUsage(cat.id);
-      if (used > 0) {
+      const used = this.categoryUsage(cat.id)
+        || this.state.recurring.some((r) => r.category === cat.id);
+      if (used) {
         this.reassignCatId = cat.id;
         this.reassignTarget = this.state.categories[this.state.categories.length - 1]?.id ?? '';
         this.reassignOpen = true;
@@ -1621,6 +1826,9 @@ document.addEventListener('alpine:init', () => {
       }
       this.state.expenses.forEach((e) => {
         if (e.category === this.reassignCatId) e.category = this.reassignTarget;
+      });
+      this.state.recurring.forEach((r) => {
+        if (r.category === this.reassignCatId) r.category = this.reassignTarget;
       });
       this._removeCategory(this.reassignCatId);
       this.reassignOpen = false;
@@ -2294,7 +2502,7 @@ document.addEventListener('alpine:init', () => {
       this._analysisCache = null;
       const ok = store.saveState(this.state);
       this._lastSaved = JSON.parse(JSON.stringify(this.state));
-      if (!ok) this.notify('No fue posible guardar los cambios. Tus datos actuales no han sido modificados.');
+      if (!ok) this.notify('El cambio se aplicó en esta sesión pero no se pudo guardar en el dispositivo (espacio insuficiente). No cierres la app sin exportar un respaldo.');
       return ok;
     },
 
@@ -2319,7 +2527,7 @@ document.addEventListener('alpine:init', () => {
       this._analysisCache = null;
       const ok = store.saveState(this.state);
       this.notify('Cambio deshecho.');
-      if (!ok) this.notify('No fue posible guardar los cambios. Tus datos actuales no han sido modificados.');
+      if (!ok) this.notify('El cambio se aplicó en esta sesión pero no se pudo guardar en el dispositivo (espacio insuficiente). No cierres la app sin exportar un respaldo.');
       this.$nextTick(() => { refreshIcons(); this.renderCharts(); });
     },
 

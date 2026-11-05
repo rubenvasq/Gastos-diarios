@@ -19,7 +19,7 @@ Gestión financiera completa en una sola app:
 - **Reportes** — ingresos vs gastos, evolución, gastos por cuenta, ahorro acumulado y **proyección anual**; exportar CSV/JSON e imprimir.
 - **Metas**, **Deudas**, **Patrimonio** (activos − pasivos), **Calendario** mensual, **Recurrentes** (pagos fijos) y **Categorías** editables.
 - **Asistente IA** — un agente que responde sobre tus finanzas usando _tool use_ sobre tus datos locales.
-- **Privacidad** — PIN de bloqueo con auto-bloqueo y opción de ocultar montos.
+- **Privacidad** — cuenta local con usuario/contraseña (sin backend, sin email: recuperación por código de un solo uso), PIN de bloqueo con auto-bloqueo y opción de ocultar montos.
 
 ---
 
@@ -55,8 +55,7 @@ Se necesita un servidor local (no abrir `index.html` con `file://`): `src/app.js
 Comprobación rápida de la lógica (sin navegador):
 
 ```bash
-node smoke.mjs              # asserts sobre storage/stats/finance/export
-node tests/agent-tools.smoke.mjs
+npm test                    # node smoke.mjs + node tests/agent-tools.smoke.mjs
 ```
 
 ---
@@ -64,10 +63,11 @@ node tests/agent-tools.smoke.mjs
 ## Estructura
 
 ```
-├── index.html             # Shell: sidebar, topbar, modales, FAB; monta las vistas
+├── index.html             # Shell: sidebar, topbar, modales, FAB, auth/onboarding; monta las vistas
 ├── views/                 # Una vista por archivo (inicio, cuentas, movimientos, …, config)
 ├── src/
 │   ├── app.js             # Componente Alpine: estado, getters, acciones, gráficos, PWA/PIN
+│   ├── auth.js             # Cuenta local (usuario/contraseña + código de recuperación), sin backend
 │   ├── db.js              # IndexedDB + caché write-through (almacén principal)
 │   ├── storage.js         # Shape del estado, sanitización, factories, seeds
 │   ├── migrations.js      # Migración de esquema v1 → v2 → v3
@@ -82,7 +82,9 @@ node tests/agent-tools.smoke.mjs
 ├── styles/main.css        # Variables de tema, animaciones, impresión, safe-area
 ├── theme.config.js        # Marca, moneda, idioma, acento, tema por defecto
 ├── manifest.webmanifest   # PWA
-└── sw.js                  # Service worker (cache-first, offline)
+├── sw.js                  # Service worker (cache-first, offline)
+├── tests/                 # Smoke tests adicionales (agente IA)
+└── smoke.mjs              # Smoke tests de lógica (storage/stats/finance/export/auth)
 ```
 
 ---

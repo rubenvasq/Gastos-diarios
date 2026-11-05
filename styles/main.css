@@ -135,6 +135,20 @@ input[type="color"] {
 
 .anim-zoom { animation: zoom-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* Bienvenida / login: ícono flotando suave + anillo de pulso de marca */
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.anim-float { animation: float-soft 3.2s ease-in-out infinite; }
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgb(var(--accent) / 0.35); }
+  70% { box-shadow: 0 0 0 16px rgb(var(--accent) / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(var(--accent) / 0); }
+}
+.anim-pulse-ring { animation: pulse-ring 2.2s cubic-bezier(.4, 0, .6, 1) infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -233,6 +247,84 @@ input[type="color"] {
   width: 4px; height: 18px; border-radius: 999px; background: var(--dot-0);
 }
 .gauge-tick.on > i { background: rgb(var(--accent)); }
+
+/* ============================================================
+   AUTENTICACIÓN / BIENVENIDA
+   Pantallas de login, registro y recuperación: fondo claro/oscuro
+   según el tema activo (no forzado a oscuro), blob de marca
+   decorativo arriba y campos tipo píldora con icono.
+   ============================================================ */
+
+/* Blob degradado de marca, recortado con una curva orgánica y difuminado
+   hacia abajo con mask-image (no es un color sólido duro). */
+.auth-blob {
+  position: absolute; inset: -4% -6% auto -6%; height: 54%; min-height: 250px;
+  background-image:
+    radial-gradient(120% 100% at 20% 0%, rgb(var(--accent) / .4), transparent 70%),
+    var(--brand-gradient);
+  opacity: .55;
+  border-radius: 0 0 65% 45% / 0 0 100% 100%;
+  -webkit-mask-image: linear-gradient(to bottom, black 45%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 45%, transparent 100%);
+  pointer-events: none;
+  transform-origin: 50% 0%;
+  animation: blob-drift 9s ease-in-out infinite;
+}
+.dark .auth-blob { opacity: .32; }
+
+/* Deriva orgánica: la curva inferior respira y el blob se mece suavemente,
+   como una burbuja de lava lenta (no un spinner ni un bounce). */
+@keyframes blob-drift {
+  0%   { border-radius: 0 0 65% 45% / 0 0 100% 100%; transform: translate(0, 0) scale(1); }
+  33%  { border-radius: 0 0 50% 70% / 0 0 100% 85%;  transform: translate(1.5%, 1%) scale(1.015); }
+  66%  { border-radius: 0 0 72% 40% / 0 0 90% 100%;  transform: translate(-1.5%, -0.5%) scale(0.99); }
+  100% { border-radius: 0 0 65% 45% / 0 0 100% 100%; transform: translate(0, 0) scale(1); }
+}
+
+/* Campo tipo píldora con icono incorporado; el foco usa un halo suave
+   en vez de engrosar el borde (evita el choque borde-grueso/esquina-redonda). */
+.auth-field {
+  display: flex; align-items: center; gap: 0.625rem;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  padding: 0.8rem 1.125rem;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.auth-field:focus-within {
+  border-color: rgb(var(--accent) / .6);
+  box-shadow: 0 0 0 4px rgb(var(--accent) / .14);
+}
+.auth-field > i { color: var(--text-muted); flex-shrink: 0; }
+.auth-field input {
+  flex: 1; min-width: 0; background: transparent; border: 0; outline: 0;
+  font-size: 15px; color: var(--text);
+}
+.auth-field input::placeholder { color: var(--text-muted); }
+.auth-field-action {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); background: transparent; border: 0; padding: 2px; cursor: pointer;
+  transition: color .15s ease;
+}
+.auth-field-action:hover { color: var(--text); }
+
+/* Enlace de acento dentro de los textos de auth (sign up / olvidaste tu contraseña) */
+.auth-link { color: rgb(var(--accent)); font-weight: 600; }
+.auth-link:hover { text-decoration: underline; }
+
+/* Botón primario tipo píldora con icono, alineado a la derecha del formulario */
+.auth-cta {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  border-radius: var(--radius-pill);
+  padding: 0.9rem 1.75rem;
+  font-weight: 600; font-size: 0.9375rem; color: #fff;
+  background-image: var(--brand-gradient);
+  box-shadow: 0 10px 24px -10px rgb(var(--accent) / .55);
+  transition: filter .15s ease, transform .1s ease, box-shadow .15s ease;
+}
+.auth-cta:hover:not(:disabled) { filter: brightness(1.08); box-shadow: 0 14px 28px -10px rgb(var(--accent) / .6); }
+.auth-cta:active:not(:disabled) { transform: scale(.98); }
+.auth-cta:disabled { opacity: .6; cursor: not-allowed; }
 
 /* Safe-area (notch / home indicator) para la PWA en móvil. En escritorio vale 0. */
 .app-topbar { padding-top: env(safe-area-inset-top); }

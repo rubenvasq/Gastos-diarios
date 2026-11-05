@@ -5,8 +5,14 @@
   "type": "module",
   "scripts": {
     "start": "npx --yes serve . -p 3000",
-    "preview": "npm start"
+    "preview": "npm start",
+    "test": "node smoke.mjs && node tests/agent-tools.smoke.mjs"
   },
-  "keywords": ["finanzas", "gastos", "presupuesto", "personal-finance"],
+  "keywords": [
+    "finanzas",
+    "gastos",
+    "presupuesto",
+    "personal-finance"
+  ],
   "license": "MIT"
 }

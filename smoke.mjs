@@ -12,6 +12,7 @@ const backup = await import(base + 'src/backup.js');
 const stats = await import(base + 'src/stats.js');
 const cat = await import(base + 'src/categories.js');
 const exp = await import(base + 'src/export.js');
+const auth = await import(base + 'src/auth.js');
 
 const assert = (cond, msg) => { if (!cond) throw new Error('FAIL: ' + msg); console.log('OK: ' + msg); };
 const assertThrows = (fn, msg) => {
@@ -221,5 +222,37 @@ assert(finance.goalSavings(goalState) === 300, 'goalSavings suma ahorro de metas
 assert(nwGoal.accounts === 700 && nwGoal.goals === 300, 'netWorth separa cuentas y metas');
 assert(nwGoal.assets === 1000 && nwGoal.netWorth === 1000, 'aportar a meta no cambia el patrimonio');
 assert(finance.goalSavings({ goals: [{ savedAmount: -50 }, { savedAmount: 'x' }] }) === 0, 'goalSavings ignora montos inválidos');
+
+// ---- autenticación local (src/auth.js) ----
+assert(!auth.hasAccount(), 'auth: sin cuenta al inicio');
+assert((await auth.register('ab', 'secreto123')).ok === false, 'auth: rechaza usuario muy corto');
+assert((await auth.register('ruben', '123')).ok === false, 'auth: rechaza password muy corta');
+
+const regResult = await auth.register('ruben', 'secreto123');
+assert(regResult.ok === true, 'auth: registro exitoso');
+assert(/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(regResult.recoveryCode), 'auth: formato del código de recuperación');
+assert(auth.hasAccount() === true, 'auth: hasAccount true tras registro');
+assert(auth.accountUsername() === 'ruben', 'auth: accountUsername devuelve el usuario');
+assert((await auth.register('otro', 'otrapass1')).ok === false, 'auth: no permite doble registro en el mismo dispositivo');
+
+assert((await auth.login('ruben', 'incorrecta')).ok === false, 'auth: login rechaza password incorrecta');
+assert((await auth.login('otro', 'secreto123')).ok === false, 'auth: login rechaza usuario incorrecto');
+assert((await auth.login('ruben', 'secreto123')).ok === true, 'auth: login exitoso');
+assert((await auth.login('RUBEN', 'secreto123')).ok === true, 'auth: login usuario case-insensitive');
+
+assert((await auth.resetWithRecoveryCode('XXXX-XXXX-XXXX', 'nuevapass1')).ok === false, 'auth: reset rechaza código incorrecto');
+const resetResult = await auth.resetWithRecoveryCode(regResult.recoveryCode, 'nuevapass1');
+assert(resetResult.ok === true, 'auth: reset exitoso con código válido');
+assert(resetResult.recoveryCode !== regResult.recoveryCode, 'auth: reset emite un código de recuperación nuevo');
+assert((await auth.login('ruben', 'secreto123')).ok === false, 'auth: password vieja no funciona tras reset');
+assert((await auth.login('ruben', 'nuevapass1')).ok === true, 'auth: password nueva funciona tras reset');
+assert((await auth.resetWithRecoveryCode(regResult.recoveryCode, 'otra12345')).ok === false, 'auth: código de recuperación es de un solo uso');
+
+assert((await auth.changePassword('incorrecta', 'algo1234')).ok === false, 'auth: changePassword rechaza password actual incorrecta');
+assert((await auth.changePassword('nuevapass1', 'cambiada1')).ok === true, 'auth: changePassword exitoso');
+assert((await auth.login('ruben', 'cambiada1')).ok === true, 'auth: login funciona tras changePassword');
+
+auth.removeLocalAccount();
+assert(auth.hasAccount() === false, 'auth: removeLocalAccount borra la cuenta');
 
 console.log('\nALL SMOKE TESTS PASSED');

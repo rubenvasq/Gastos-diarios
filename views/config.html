@@ -194,6 +194,43 @@
             <p class="flex items-center gap-2"><i data-lucide="info" class="w-4 h-4 text-accent"></i> Personalización avanzada: edita <code class="text-accent font-mono">theme.config.js</code> y <code class="text-accent font-mono">src/categories.js</code>.</p>
           </div>
 
+          <!-- Cuenta local -->
+          <div class="card space-y-5">
+            <h3 class="font-bold flex items-center gap-2"><i data-lucide="user-round" class="w-4 h-4 text-accent"></i> Cuenta</h3>
+
+            <div class="flex items-center gap-3">
+              <span class="w-11 h-11 rounded-full grid place-items-center bg-accent text-white font-bold shrink-0" x-text="hasLocalAccount ? '👤' : '—'"></span>
+              <div class="min-w-0">
+                <p class="text-sm font-semibold truncate" x-text="hasLocalAccount ? (accountUsername ?? 'Sin usuario') : 'Sin cuenta'"></p>
+                <p class="text-xs text-slate-400">Cuenta local de este dispositivo (sin servidor).</p>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <p class="form-label mb-0">Cambiar contraseña</p>
+              <input type="password" autocomplete="current-password" x-model="accountPwForm.current" placeholder="Contraseña actual" class="field">
+              <input type="password" autocomplete="new-password" x-model="accountPwForm.next" placeholder="Nueva contraseña (mín. 6 caracteres)" class="field">
+              <p x-show="accountPwError" class="text-[13px] font-medium text-rose-500" x-text="accountPwError"></p>
+              <button @click="submitChangePassword" class="btn-ghost text-accent"><i data-lucide="key-round" class="w-4 h-4"></i> Actualizar contraseña</button>
+            </div>
+
+            <div class="flex items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div>
+                <p class="text-sm font-medium">Cerrar sesión</p>
+                <p class="text-xs text-slate-400">Tendrás que volver a ingresar tu contraseña.</p>
+              </div>
+              <button @click="logout" class="btn-ghost"><i data-lucide="log-out" class="w-4 h-4"></i> Salir</button>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="text-sm font-medium text-rose-500">Eliminar cuenta local</p>
+                <p class="text-xs text-slate-400">Borra el usuario/contraseña de este dispositivo. Tus datos financieros NO se eliminan.</p>
+              </div>
+              <button @click="deleteLocalAccount" class="btn-ghost text-rose-500"><i data-lucide="trash-2" class="w-4 h-4"></i> Eliminar</button>
+            </div>
+          </div>
+
           <!-- Privacidad -->
           <div class="card space-y-5">
             <h3 class="font-bold flex items-center gap-2"><i data-lucide="shield" class="w-4 h-4 text-accent"></i> Privacidad y seguridad</h3>

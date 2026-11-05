@@ -55,13 +55,25 @@ export function dayStats(expenses, year, month) {
   return map;
 }
 
+// Avanza año/mes manteniendo el día, acotado al último día del mes destino
+// (ej. 31 ene + 1 mes -> 28/29 feb, en vez de desbordar a marzo).
+function addCalendarUnitClamped(d, unit, amount) {
+  const day = d.getDate();
+  d.setDate(1);
+  if (unit === 'month') d.setMonth(d.getMonth() + amount);
+  else d.setFullYear(d.getFullYear() + amount);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDay));
+  return d;
+}
+
 // Avanza una fecha según la frecuencia de un pago recurrente.
 export function nextRecurringDate(date, frequency) {
   const d = new Date(date + 'T12:00:00');
   if (frequency === 'semanal') d.setDate(d.getDate() + 7);
   else if (frequency === 'quincenal') d.setDate(d.getDate() + 15);
-  else if (frequency === 'anual') d.setFullYear(d.getFullYear() + 1);
-  else d.setMonth(d.getMonth() + 1); // 'mensual' por defecto
+  else if (frequency === 'anual') addCalendarUnitClamped(d, 'year', 1);
+  else addCalendarUnitClamped(d, 'month', 1); // 'mensual' por defecto
   return dateStr(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
@@ -74,8 +86,9 @@ export function upcomingRecurring(recurring, days) {
   return recurring
     .filter((r) => r.active)
     .map((r) => {
-      const d = new Date(r.nextDate + 'T12:00:00');
-      return { r, pending: d <= now, daysUntil: Math.round((d - now) / 86400000) };
+      const d = new Date(r.nextDate + 'T00:00:00');
+      const daysUntil = Math.round((d - now) / 86400000);
+      return { r, pending: daysUntil < 0, daysUntil };
     })
     .filter((x) => x.daysUntil <= days)
     .sort((a, b) => a.daysUntil - b.daysUntil);

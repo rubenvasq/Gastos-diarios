@@ -8,4 +8,6 @@ Thumbs.db
 .agents/
 .codex/
 .github/
+.impeccable/
+.cmem-projects/
 skills-lock.json
