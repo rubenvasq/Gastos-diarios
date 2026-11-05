@@ -247,6 +247,32 @@ document.addEventListener('alpine:init', () => {
       { icon: 'target', title: 'Metas, presupuestos y reportes', text: 'Visualiza tu progreso, controla tu presupuesto mensual y alcanza tus metas de ahorro.' },
     ],
 
+    // ---- "Empecemos": asistente de configuración inicial (tras un registro nuevo) ----
+    // Reemplaza las cuentas de ejemplo (ACCOUNT_DEFAULTS) por las cuentas reales
+    // del usuario y su presupuesto real, en vez de dejarlo con saldos ficticios.
+    // No bloquea: se puede omitir en cualquier paso y queda todo como estaba.
+    setupActive: false,
+    setupStep: 0, // 0 = intro, 1 = presupuesto, 2 = cuentas, 3 = resumen
+    setupBudget: '',
+    setupAccounts: [],
+
+    // ---- Tutorial guiado (tras crear cuenta, o repetible desde Configuración) ----
+    // Spotlight sobre elementos reales de la UI (no un modal de texto): cada paso
+    // apunta a un selector, mide su posición con getBoundingClientRect y dibuja un
+    // recorte + una tarjeta junto a él. No bloquea la app (se puede saltar/cerrar
+    // en cualquier momento) y es replayable desde Configuración → Ayuda.
+    tourActive: false,
+    tourStep: 0,
+    tourRect: null, // { top, left, width, height } del elemento actual, en viewport
+    tourPos: { top: 0, left: 0 }, // posición de la tarjeta junto al recorte
+    tourSteps: [
+      { target: '[data-tour="tour-nav"]', placement: 'bottom', title: 'Así navegas', text: 'Usa estas pestañas para moverte entre Cuentas, Movimientos, Presupuestos, Reportes y el resto de secciones.' },
+      { target: '[data-tour="tour-dashboard"]', placement: 'bottom', title: 'Tu resumen financiero', text: 'En Inicio ves tu balance, el resumen del mes y el avance de tu presupuesto de un vistazo.' },
+      { target: '#fab', placement: 'left', title: 'Registra un movimiento', text: 'Toca este botón para agregar un gasto, un ingreso o una transferencia en segundos.' },
+      { target: '[data-tour="tour-ai"]', placement: 'bottom', title: 'Tu asistente de IA', text: 'Pregúntale sobre tus finanzas: puede consultar tus gastos y hasta registrar movimientos por ti.' },
+      { target: '[data-tour="tour-settings"]', placement: 'bottom', title: '¿Quieres volver a verlo?', text: 'Puedes personalizar la app y repetir este tutorial cuando quieras desde Configuración.' },
+    ],
+
     // ---- Autenticación local (sin backend; ver src/auth.js) ----
     // `hasLocalAccount` se guarda como campo plano (no getter) porque se
     // actualiza tras register()/removeLocalAccount(); se lee una sola vez
@@ -257,8 +283,8 @@ document.addEventListener('alpine:init', () => {
     authForm: { username: '', password: '', password2: '', recoveryCode: '', newPassword: '' },
     authError: '',
     authBusy: false,
-    authOverwritePending: false, // true cuando el registro chocó con una cuenta existente y se ofrece reemplazarla
     recoveryCodeToShow: '',
+    _freshRegistration: false, // dispara el tutorial guiado solo tras un registro nuevo, no en cada login
     accountPwForm: { current: '', next: '' },
     accountPwError: '',
 
@@ -291,6 +317,14 @@ document.addEventListener('alpine:init', () => {
 
     // Usuario de la cuenta local (null si no existe cuenta en este dispositivo).
     get accountUsername() { return auth.accountUsername(); },
+
+    // Recorte del tutorial con un margen de aire alrededor del elemento real.
+    get tourPad() {
+      const r = this.tourRect;
+      if (!r) return null;
+      const pad = 8;
+      return { top: Math.max(r.top - pad, 0), left: Math.max(r.left - pad, 0), width: r.width + pad * 2, height: r.height + pad * 2 };
+    },
 
     // ============================================================
     init() {
@@ -335,6 +369,11 @@ document.addEventListener('alpine:init', () => {
       // hash y restaura la pantalla correcta si se recarga estando en ella.
       window.addEventListener('hashchange', () => this._applyHash());
       this._applyHash();
+
+      // Tutorial guiado: re-mide el elemento resaltado si cambia el tamaño de
+      // la ventana (rotación, resize del navegador), y se puede cerrar con Esc.
+      window.addEventListener('resize', () => { if (this.tourActive) this._positionTour(); });
+      window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.tourActive) this.endTour(false); });
 
       // PWA / offline: registra el service worker (no rompe nada en http://localhost
       // ni si el navegador no lo soporta).
@@ -1168,6 +1207,135 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
+    // ============================================================
+    // "Empecemos": configuración inicial (presupuesto real + cuentas reales)
+    // ============================================================
+    startSetup() {
+      this.setupStep = 0;
+      this.setupBudget = '';
+      // Banco y efectivo preseleccionados por ser las más comunes; el resto
+      // queda a un toque de distancia. 'otros' no se ofrece aquí (es el
+      // cajón de sastre, no una cuenta real que alguien "tenga").
+      this.setupAccounts = store.ACCOUNT_TYPES.filter((t) => t.id !== 'otros').map((t) => ({
+        id: t.id, label: t.label, icon: t.icon, color: t.color,
+        selected: t.id === 'banco' || t.id === 'efectivo',
+        balance: '',
+      }));
+      this.setupActive = true;
+      this.$nextTick(refreshIcons);
+    },
+
+    setupNext() { if (this.setupStep < 3) this.setupStep++; this.$nextTick(refreshIcons); },
+    setupBack() { if (this.setupStep > 0) this.setupStep--; this.$nextTick(refreshIcons); },
+    setupToggleAccount(id) {
+      const a = this.setupAccounts.find((x) => x.id === id);
+      if (a) a.selected = !a.selected;
+    },
+
+    skipSetup() {
+      this.setupActive = false;
+      this._afterSetup();
+    },
+
+    // Sustituye las cuentas de ejemplo por las reales solo si el usuario eligió
+    // al menos una; con cero seleccionadas se respeta lo que ya había (no se
+    // deja a alguien sin cuentas por aceptar el asistente sin marcar nada).
+    finishSetup() {
+      const budget = parseFloat(this.setupBudget);
+      if (Number.isFinite(budget) && budget >= 0) this.state.budget = budget;
+
+      const chosen = this.setupAccounts.filter((a) => a.selected);
+      if (chosen.length) {
+        this.state.accounts = chosen.map((a) => store.createAccount({
+          name: a.label, type: a.id, icon: a.icon, color: a.color,
+          balance: parseFloat(a.balance) || 0, currency: '', status: 'activa',
+        }));
+      }
+      this._logActivity('presupuesto', 'Cuenta configurada desde el asistente de bienvenida');
+      this._save();
+      this.setupActive = false;
+      this.notify('✓ Tu cuenta quedó configurada.');
+      this._afterSetup();
+    },
+
+    _afterSetup() {
+      this.$nextTick(() => { refreshIcons(); this.renderCharts(); });
+      if (localStorage.getItem('gd-tour-done') !== '1') {
+        setTimeout(() => this.startTour(), 400);
+      }
+    },
+
+    // ============================================================
+    // Tutorial guiado (spotlight sobre la UI real)
+    // ============================================================
+    // Se asegura de estar en Inicio y fuera de Configuración antes de medir los
+    // elementos: algunos pasos (dashboard, pestañas) viven detrás de un x-if y
+    // no existen en el DOM mientras showConfig está activo.
+    startTour() {
+      this.closeConfig();
+      this.goTo('inicio');
+      this.profileOpen = false;
+      this.notifOpen = false;
+      this.fabOpen = false;
+      this.tourStep = 0;
+      this.tourActive = true;
+      this.$nextTick(() => requestAnimationFrame(() => this._positionTour()));
+    },
+
+    tourNext() {
+      if (this.tourStep >= this.tourSteps.length - 1) { this.endTour(true); return; }
+      this.tourStep++;
+      this._positionTour();
+    },
+
+    endTour(completed) {
+      this.tourActive = false;
+      this.tourRect = null;
+      localStorage.setItem('gd-tour-done', '1');
+      if (completed) this.notify('✓ Tutorial completado. ¡Listo para empezar!');
+    },
+
+    // Mide el elemento del paso actual y lo trae a la vista si hace falta
+    // (p. ej. una pestaña fuera del scroll horizontal en móvil).
+    _positionTour() {
+      const step = this.tourSteps[this.tourStep];
+      const el = step && document.querySelector(step.target);
+      if (!el) { this.endTour(false); return; }
+      el.scrollIntoView({ block: 'nearest', inline: 'center' });
+      requestAnimationFrame(() => {
+        const r = el.getBoundingClientRect();
+        this.tourRect = { top: r.top, left: r.left, width: r.width, height: r.height };
+        this._positionTourCard(step);
+      });
+    },
+
+    _positionTourCard(step) {
+      const r = this.tourRect;
+      if (!r) return;
+      const CARD_W = 320, GAP = 16;
+      let top, left;
+      if (step.placement === 'left') {
+        left = Math.max(r.left - CARD_W - GAP, GAP);
+        top = Math.min(Math.max(r.top, GAP), window.innerHeight - 260);
+      } else {
+        top = Math.min(r.top + r.height + GAP, window.innerHeight - 260);
+        left = Math.min(Math.max(r.left, GAP), window.innerWidth - CARD_W - GAP);
+      }
+      this.tourPos = { top, left };
+    },
+
+    // Estilo (solo posición) de cada panel de recorte alrededor del elemento resaltado.
+    tourBoxStyle(side) {
+      const p = this.tourPad;
+      if (!p) return 'display:none';
+      const vw = window.innerWidth, vh = window.innerHeight;
+      if (side === 'top') return `top:0;left:0;right:0;height:${p.top}px`;
+      if (side === 'bottom') return `top:${p.top + p.height}px;left:0;right:0;height:${Math.max(vh - (p.top + p.height), 0)}px`;
+      if (side === 'left') return `top:${p.top}px;left:0;width:${p.left}px;height:${p.height}px`;
+      if (side === 'right') return `top:${p.top}px;left:${p.left + p.width}px;width:${Math.max(vw - (p.left + p.width), 0)}px;height:${p.height}px`;
+      return `top:${p.top}px;left:${p.left}px;width:${p.width}px;height:${p.height}px`; // 'ring'
+    },
+
     changeMonth(delta) {
       this.viewMonth += delta;
       if (this.viewMonth > 11) { this.viewMonth = 0; this.viewYear++; }
@@ -1578,7 +1746,6 @@ document.addEventListener('alpine:init', () => {
     switchAuthScreen(screen) {
       this.authScreen = screen;
       this.authError = '';
-      this.authOverwritePending = false;
       this.authForm = { username: '', password: '', password2: '', recoveryCode: '', newPassword: '' };
       this.$nextTick(refreshIcons);
     },
@@ -1590,38 +1757,15 @@ document.addEventListener('alpine:init', () => {
         return;
       }
       this.authError = '';
-      this.authOverwritePending = false;
       this.authBusy = true;
       try {
         const r = await auth.register(f.username, f.password);
         if (!r.ok) {
-          // Ya hay una cuenta local: en vez de bloquear, se ofrece reemplazarla
-          // (requiere confirmación explícita porque descarta las credenciales
-          // anteriores; los datos financieros no se ven afectados).
-          if (this.hasLocalAccount) { this.authOverwritePending = true; return; }
           this.authError = r.error;
           return;
         }
         this.hasLocalAccount = true;
-        this.recoveryCodeToShow = r.recoveryCode;
-        this.authScreen = 'recovery-reveal';
-        this.$nextTick(refreshIcons);
-      } finally {
-        this.authBusy = false;
-      }
-    },
-
-    // Reemplaza la cuenta local existente por la del formulario de registro
-    // actual. Solo se llama tras la confirmación explícita del usuario.
-    async confirmOverwriteAccount() {
-      const f = this.authForm;
-      this.authOverwritePending = false;
-      this.authBusy = true;
-      try {
-        auth.removeLocalAccount();
-        const r = await auth.register(f.username, f.password);
-        if (!r.ok) { this.authError = r.error; return; }
-        this.hasLocalAccount = true;
+        this._freshRegistration = true;
         this.recoveryCodeToShow = r.recoveryCode;
         this.authScreen = 'recovery-reveal';
         this.$nextTick(refreshIcons);
@@ -1663,6 +1807,12 @@ document.addEventListener('alpine:init', () => {
       localStorage.setItem('gd-authed', '1');
       this.recoveryCodeToShow = '';
       this.authForm = { username: '', password: '', password2: '', recoveryCode: '', newPassword: '' };
+      // Empecemos + tutorial guiado: solo la primera vez, tras un registro nuevo
+      // (no en cada login). El asistente de configuración encadena el tour al salir.
+      if (this._freshRegistration) {
+        this._freshRegistration = false;
+        setTimeout(() => this.startSetup(), 400);
+      }
     },
 
     copyRecoveryCode() {

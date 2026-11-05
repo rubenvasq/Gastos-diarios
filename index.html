@@ -169,21 +169,7 @@
               </label>
               <p x-show="authError" class="text-[13px] font-medium text-rose-500 dark:text-rose-400" x-text="authError"></p>
 
-              <!-- Ya hay una cuenta local: se pide confirmar antes de reemplazarla -->
-              <div x-show="authOverwritePending" x-cloak class="rounded-2xl p-4" style="background: var(--surface); border: 1px solid var(--border)">
-                <p class="text-[13px] leading-relaxed" style="color: var(--text)">
-                  Ya existe una cuenta en este dispositivo. Si continúas, se <strong>reemplazará</strong> por esta nueva (tus datos financieros no se pierden, pero las credenciales anteriores dejarán de funcionar).
-                </p>
-                <div class="flex items-center gap-2.5 mt-3">
-                  <button type="button" @click="authOverwritePending = false" class="btn-ghost flex-1 justify-center">Cancelar</button>
-                  <button type="button" :disabled="authBusy" @click="confirmOverwriteAccount" class="auth-cta flex-1" style="background-image: none; background-color: var(--rose);">
-                    <span x-show="!authBusy">Reemplazar cuenta</span>
-                    <span x-show="authBusy">Reemplazando…</span>
-                  </button>
-                </div>
-              </div>
-
-              <button x-show="!authOverwritePending" type="submit" :disabled="authBusy" class="auth-cta mt-3 self-end">
+              <button type="submit" :disabled="authBusy" class="auth-cta mt-3 self-end">
                 <span x-show="!authBusy">Crear cuenta</span>
                 <span x-show="authBusy">Creando…</span>
                 <i data-lucide="arrow-right" class="w-4 h-4"></i>
@@ -229,6 +215,86 @@
               <i data-lucide="copy" class="w-4 h-4"></i> Copiar código
             </button>
             <button @click="completeLogin()" class="auth-cta w-full">Ya lo guardé, continuar</button>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ============ "EMPECEMOS" (configuración inicial, solo tras registrarte) ============ -->
+    <div x-show="setupActive" x-cloak class="fixed inset-0 z-[91] overflow-y-auto" style="background: var(--bg)">
+      <div class="relative w-full max-w-sm mx-auto px-6 pt-8 pb-10 min-h-screen flex flex-col justify-center">
+
+        <!-- Paso 0: intro -->
+        <template x-if="setupStep === 0">
+          <div class="anim-rise text-center">
+            <div class="w-16 h-16 mx-auto mb-5 rounded-[28px] grid place-items-center text-white" style="background-image: var(--brand-gradient)">
+              <i data-lucide="sparkles" class="w-8 h-8"></i>
+            </div>
+            <h2 class="text-2xl font-bold tracking-tight mb-2" style="color: var(--text)">¡Empecemos!</h2>
+            <p class="text-sm leading-relaxed mb-8" style="color: var(--text-muted)">Un par de preguntas rápidas para dejar tu cuenta lista — menos de un minuto.</p>
+            <button @click="setupNext()" class="auth-cta w-full justify-center mb-3">Comenzar <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+            <button @click="skipSetup()" class="auth-link text-sm">Omitir, lo configuro después</button>
+          </div>
+        </template>
+
+        <!-- Paso 1: presupuesto -->
+        <template x-if="setupStep === 1">
+          <div class="anim-rise">
+            <p class="text-[11px] font-semibold uppercase tracking-wider mb-2" style="color: var(--text-muted)">Paso 1 de 3</p>
+            <h2 class="text-2xl font-bold tracking-tight mb-1.5" style="color: var(--text)">¿Cuál es tu presupuesto mensual?</h2>
+            <p class="text-sm mb-6" style="color: var(--text-muted)">Te ayuda a ver cuánto llevas gastado cada mes. Puedes usar tu ingreso mensual como referencia, y cambiarlo cuando quieras.</p>
+            <label class="auth-field mb-6">
+              <i data-lucide="wallet" class="w-[18px] h-[18px]"></i>
+              <input type="number" min="0" inputmode="decimal" x-model="setupBudget" placeholder="Ej. 2000000">
+            </label>
+            <div class="flex items-center gap-3">
+              <button @click="setupBack()" class="btn-icon" style="background: var(--surface); border: 1px solid var(--border)" aria-label="Atrás"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+              <button @click="setupNext()" class="auth-cta flex-1 justify-center">Siguiente <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+            </div>
+            <button @click="skipSetup()" class="auth-link text-sm mt-5 block mx-auto">Omitir</button>
+          </div>
+        </template>
+
+        <!-- Paso 2: cuentas -->
+        <template x-if="setupStep === 2">
+          <div class="anim-rise">
+            <p class="text-[11px] font-semibold uppercase tracking-wider mb-2" style="color: var(--text-muted)">Paso 2 de 3</p>
+            <h2 class="text-2xl font-bold tracking-tight mb-1.5" style="color: var(--text)">¿Qué cuentas usas?</h2>
+            <p class="text-sm mb-5" style="color: var(--text-muted)">Elige las que tengas. Puedes agregar más después desde Cuentas.</p>
+            <div class="space-y-2 mb-6 max-h-[42vh] overflow-y-auto pr-1">
+              <template x-for="a in setupAccounts" :key="a.id">
+                <div class="rounded-2xl border transition" :class="a.selected ? 'border-accent/40 bg-accent/5' : 'border-[color:var(--border)]'">
+                  <button type="button" @click="setupToggleAccount(a.id)" class="w-full flex items-center gap-3 px-3.5 py-3">
+                    <span class="w-8 h-8 rounded-xl grid place-items-center shrink-0" :style="`background:${a.color}1a;color:${a.color}`"><i :data-lucide="a.icon" class="w-4 h-4"></i></span>
+                    <span class="flex-1 text-left text-sm font-medium" :style="a.selected ? 'color: var(--text)' : 'color: var(--text-muted)'" x-text="a.label"></span>
+                    <span class="relative inline-flex h-6 w-11 shrink-0 rounded-full transition" :class="a.selected ? 'bg-accent' : 'bg-slate-200 dark:bg-slate-700'">
+                      <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200" :class="a.selected ? 'translate-x-5' : ''"></span>
+                    </span>
+                  </button>
+                  <div x-show="a.selected" x-cloak class="px-3.5 pb-3 -mt-1">
+                    <input type="number" min="0" inputmode="decimal" x-model="a.balance" placeholder="Saldo inicial (opcional)" class="field text-sm py-2">
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div class="flex items-center gap-3">
+              <button @click="setupBack()" class="btn-icon" style="background: var(--surface); border: 1px solid var(--border)" aria-label="Atrás"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+              <button @click="setupNext()" class="auth-cta flex-1 justify-center">Siguiente <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+            </div>
+            <button @click="skipSetup()" class="auth-link text-sm mt-5 block mx-auto">Omitir</button>
+          </div>
+        </template>
+
+        <!-- Paso 3: resumen -->
+        <template x-if="setupStep === 3">
+          <div class="anim-rise text-center">
+            <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-emerald-500/15 text-emerald-500 grid place-items-center"><i data-lucide="check" class="w-7 h-7"></i></div>
+            <h2 class="text-xl font-bold mb-1.5" style="color: var(--text)">¡Todo listo!</h2>
+            <p class="text-sm mb-6 leading-relaxed" style="color: var(--text-muted)">
+              <template x-if="setupBudget"><span>Presupuesto mensual: <strong x-text="fmt(parseFloat(setupBudget) || 0)"></strong><br></span></template>
+              <span x-text="`${setupAccounts.filter(a => a.selected).length} cuenta(s) configurada(s)`"></span>
+            </p>
+            <button @click="finishSetup()" class="auth-cta w-full justify-center">Comenzar a usar GastosDiarios</button>
           </div>
         </template>
       </div>
@@ -356,10 +422,10 @@
         </button>
 
         <!-- Pestañas tipo pill (navegación principal) -->
-        <nav class="flex-1 min-w-0 overflow-x-auto no-scrollbar cursor-grab" x-init="dragScroll($el)">
+        <nav class="flex-1 min-w-0 overflow-x-auto no-scrollbar cursor-grab" x-init="dragScroll($el)" data-tour="tour-nav">
           <div class="flex items-center gap-2 w-max">
             <template x-for="nav in navItems" :key="nav.id">
-              <button @click="goTo(nav.id)" class="pill" :class="(view === nav.id && !showConfig) ? 'pill-active' : ''">
+              <button @click="goTo(nav.id)" class="pill" :class="(view === nav.id && !showConfig) ? 'pill-active' : ''" :data-tour="nav.id === 'asistente' ? 'tour-ai' : null">
                 <i :data-lucide="nav.icon" class="w-4 h-4"></i>
                 <span x-text="nav.label"></span>
               </button>
@@ -383,7 +449,7 @@
             <i x-show="!isDark" data-lucide="moon" class="w-[18px] h-[18px]"></i>
             <i x-show="isDark" data-lucide="sun" class="w-[18px] h-[18px]"></i>
           </button>
-          <button @click="openConfig" class="circle-btn w-10 h-10" aria-label="Configuración">
+          <button @click="openConfig" class="circle-btn w-10 h-10" aria-label="Configuración" data-tour="tour-settings">
             <i data-lucide="settings" class="w-[18px] h-[18px]"></i>
           </button>
 
@@ -520,6 +586,40 @@
     <div data-partial="modals/reasignar-categoria"></div>
     <div data-partial="modals/busqueda-global"></div>
     <div data-partial="modals/analisis-datos"></div>
+
+    <!-- ============ TUTORIAL GUIADO (spotlight sobre la UI real) ============ -->
+    <template x-if="tourActive && tourPad">
+      <div class="fixed inset-0 z-[85] pointer-events-none">
+        <div class="absolute bg-slate-950/55 transition-all duration-300" :style="tourBoxStyle('top')"></div>
+        <div class="absolute bg-slate-950/55 transition-all duration-300" :style="tourBoxStyle('bottom')"></div>
+        <div class="absolute bg-slate-950/55 transition-all duration-300" :style="tourBoxStyle('left')"></div>
+        <div class="absolute bg-slate-950/55 transition-all duration-300" :style="tourBoxStyle('right')"></div>
+        <div class="absolute rounded-2xl transition-all duration-300" :style="tourBoxStyle('ring') + ';box-shadow:0 0 0 2px rgb(var(--accent) / .9), 0 0 0 6px rgb(var(--accent) / .25)'"></div>
+      </div>
+    </template>
+
+    <template x-if="tourActive">
+      <div class="fixed z-[86] w-[320px] max-w-[90vw] rounded-3xl p-5 shadow-2xl transition-all duration-300 bg-[color:var(--surface)] border border-[color:var(--border)]"
+        :style="`top:${tourPos.top}px;left:${tourPos.left}px`">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <span class="text-[11px] font-semibold uppercase tracking-wider" style="color: var(--text-muted)" x-text="`Paso ${tourStep + 1} de ${tourSteps.length}`"></span>
+          <button @click="endTour(false)" class="btn-icon w-7 h-7" aria-label="Cerrar tutorial"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+        </div>
+        <h3 class="text-base font-bold tracking-tight mb-1.5" style="color: var(--text)" x-text="tourSteps[tourStep]?.title"></h3>
+        <p class="text-sm leading-relaxed mb-4" style="color: var(--text-muted)" x-text="tourSteps[tourStep]?.text"></p>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-1.5 flex-1">
+            <template x-for="(s, i) in tourSteps" :key="i">
+              <span class="h-1.5 rounded-full transition-all" :class="i === tourStep ? 'w-5' : 'w-1.5'" :style="i === tourStep ? 'background: rgb(var(--accent))' : 'background: var(--border)'"></span>
+            </template>
+          </div>
+          <button x-show="tourStep < tourSteps.length - 1" @click="endTour(false)" class="text-xs font-semibold shrink-0" style="color: var(--text-muted)">Saltar</button>
+          <button @click="tourNext()" class="btn-primary shrink-0">
+            <span x-text="tourStep < tourSteps.length - 1 ? 'Siguiente' : 'Listo'"></span>
+          </button>
+        </div>
+      </div>
+    </template>
 
     <!-- Toast -->
     <div id="toast" x-show="toast" x-cloak
