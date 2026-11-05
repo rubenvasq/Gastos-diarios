@@ -1,0 +1,57 @@
+    <!-- ============ MODAL: CATEGORÍA ============ -->
+    <div x-show="catModalOpen" x-cloak class="fixed inset-0 z-[60] grid place-items-center p-4">
+      <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="catModalOpen = false"></div>
+      <div x-show="catModalOpen" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+        role="dialog" aria-modal="true" class="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 shadow-2xl p-6 anim-zoom">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-lg font-bold tracking-tight" x-text="catForm?.id ? 'Editar categoría' : 'Nueva categoría'"></h2>
+          <button @click="catModalOpen = false" class="btn-icon w-9 h-9" aria-label="Cerrar"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+
+        <template x-if="catForm">
+          <form @submit.prevent="submitCategory" class="flex flex-col gap-4">
+            <div>
+              <label class="form-label">Nombre</label>
+              <input type="text" x-model="catForm.label" maxlength="30" placeholder="Ej. Alimentación" class="field">
+            </div>
+
+            <div>
+              <label class="form-label">Emoji</label>
+              <input type="text" x-model="catForm.emoji" maxlength="4" placeholder="🍽️" class="field">
+            </div>
+
+            <div>
+              <span class="form-label">Icono</span>
+              <div class="flex flex-wrap gap-1.5">
+                <template x-for="ic in ['utensils','bus','clapperboard','shopping-bag','heart-pulse','graduation-cap','smartphone','house','repeat','package','tag','gift','book','dumbbell','plane','gamepad-2','music','coffee','dog','baby']" :key="ic">
+                  <button type="button" @click="catForm.icon = ic" class="w-9 h-9 rounded-xl grid place-items-center transition"
+                    :class="catForm.icon === ic ? 'bg-accent text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'">
+                    <i :data-lucide="ic" class="w-4 h-4"></i>
+                  </button>
+                </template>
+              </div>
+            </div>
+
+            <div>
+              <span class="form-label">Color</span>
+              <div class="flex flex-wrap gap-2">
+                <template x-for="p in config.accentPresets" :key="p.value">
+                  <button type="button" @click="catForm.color = p.value" class="w-7 h-7 rounded-full transition hover:scale-110"
+                    :class="catForm.color === p.value ? 'ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : ''"
+                    :style="`background:${p.value}; --tw-ring-color:${p.value}`"></button>
+                </template>
+                <label class="w-7 h-7 rounded-full grid place-items-center border-2 border-dashed border-slate-300 dark:border-slate-600 cursor-pointer text-slate-400" title="Personalizado">
+                  <i data-lucide="pipette" class="w-3.5 h-3.5"></i>
+                  <input type="color" x-model="catForm.color" class="sr-only">
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" class="inline-flex items-center justify-center gap-2 w-full rounded-2xl px-4 py-3.5 text-sm font-semibold text-white bg-accent shadow-lg shadow-accent/30 transition hover:brightness-110 hover:-translate-y-px active:scale-[.98]">
+              <i data-lucide="check" class="w-[18px] h-[18px]"></i>
+              <span x-text="catForm.id ? 'Guardar cambios' : 'Crear categoría'"></span>
+            </button>
+          </form>
+        </template>
+      </div>
+    </div>

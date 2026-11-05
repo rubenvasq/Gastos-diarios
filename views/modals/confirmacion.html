@@ -1,0 +1,20 @@
+    <!-- ============ MODAL: CONFIRMACIÓN ============ -->
+    <div x-show="confirmOpen" x-cloak class="fixed inset-0 z-[70] grid place-items-center p-4">
+      <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="confirmOpen = false"></div>
+      <div x-show="confirmOpen" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+        role="dialog" aria-modal="true" class="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 shadow-2xl p-6 anim-zoom text-center">
+        <div class="w-14 h-14 mx-auto mb-4 rounded-2xl grid place-items-center"
+          :class="confirmTone === 'danger' ? 'bg-rose-50 text-rose-500 dark:bg-rose-500/10 dark:text-rose-400' : confirmTone === 'ok' ? 'bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-amber-50 text-amber-500 dark:bg-amber-500/10 dark:text-amber-400'">
+          <i :data-lucide="confirmTone === 'danger' ? 'triangle-alert' : confirmTone === 'ok' ? 'circle-check' : 'circle-alert'" class="w-7 h-7"></i>
+        </div>
+        <p class="font-semibold mb-1" x-text="confirmTone === 'danger' ? '¿Estás seguro?' : 'Confirmación'"></p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed" x-text="confirmMessage"></p>
+        <div class="flex gap-3 mt-6">
+          <button @click="confirmOpen = false" class="btn-ghost flex-1 justify-center">Cancelar</button>
+          <button @click="runConfirm" class="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[.98]"
+            :class="confirmTone === 'danger' ? 'bg-rose-500 shadow-rose-500/30' : 'bg-accent shadow-accent/30'">
+            <span x-text="confirmTone === 'danger' ? 'Sí, continuar' : 'Aceptar'"></span>
+          </button>
+        </div>
+      </div>
+    </div>

@@ -1,0 +1,80 @@
+    <!-- ============ MODAL: BÚSQUEDA GLOBAL ============ -->
+    <div x-show="globalSearchOpen" x-cloak class="fixed inset-0 z-[65]">
+      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="closeGlobalSearch"></div>
+      <div x-show="globalSearchOpen" x-cloak
+        class="relative mx-auto mt-[12vh] w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 shadow-2xl overflow-hidden anim-zoom">
+        <div class="flex items-center gap-3 px-5 h-14 border-b border-slate-100 dark:border-slate-800">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 shrink-0"></i>
+          <input id="global-search-input" type="text" x-model.debounce.200ms="globalQuery" placeholder="Buscar movimientos, cuentas, categorías…"
+            class="flex-1 bg-transparent outline-none text-sm min-w-0">
+          <button @click="closeGlobalSearch" class="btn-icon w-8 h-8" aria-label="Cerrar"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+
+        <div class="max-h-[50vh] overflow-y-auto p-3 space-y-4">
+          <template x-if="!globalQuery.trim()">
+            <p class="text-sm text-slate-400 text-center py-8">Escribe para buscar en toda tu información.</p>
+          </template>
+          <template x-if="globalQuery.trim() && globalSearchResults.length === 0">
+            <p class="text-sm text-slate-400 text-center py-8">Sin resultados para "<span x-text="globalQuery"></span>".</p>
+          </template>
+
+          <template x-for="group in globalSearchResults" :key="group.key">
+            <div>
+              <p class="px-2 pb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <i :data-lucide="group.icon" class="w-3.5 h-3.5"></i> <span x-text="group.label"></span>
+              </p>
+              <div class="space-y-1">
+                <template x-for="item in group.items" :key="item.rec?.id ?? item.id">
+                  <button @click="globalPick(item, group.key)"
+                    class="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left transition hover:bg-slate-50 dark:hover:bg-slate-800">
+                    <template x-if="group.key === 'movimientos'">
+                      <span class="w-8 h-8 rounded-xl grid place-items-center shrink-0"
+                        :class="item.kind === 'expense' ? 'bg-rose-50 text-rose-500 dark:bg-rose-500/10 dark:text-rose-400' : item.kind === 'income' ? 'bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-sky-50 text-sky-500 dark:bg-sky-500/10 dark:text-sky-400'">
+                        <i :data-lucide="item.kind === 'expense' ? 'credit-card' : item.kind === 'income' ? 'trending-up' : 'arrow-right-left'" class="w-4 h-4"></i>
+                      </span>
+                    </template>
+                    <template x-if="group.key === 'cuentas'">
+                      <span class="w-8 h-8 rounded-xl grid place-items-center shrink-0" :style="`background:${item.color}22; color:${item.color}`">
+                        <i :data-lucide="item.icon" class="w-4 h-4"></i>
+                      </span>
+                    </template>
+                    <template x-if="group.key === 'categorias'">
+                      <span class="w-8 h-8 rounded-xl grid place-items-center shrink-0" :style="`background:${item.color}22; color:${item.color}`">
+                        <i :data-lucide="item.icon" class="w-4 h-4"></i>
+                      </span>
+                    </template>
+                    <div class="min-w-0 flex-1">
+                      <template x-if="group.key === 'movimientos'">
+                        <div class="flex items-center justify-between gap-3">
+                          <p class="text-sm font-medium truncate" x-text="item.rec.description || item.cat.label || item.acct?.name"></p>
+                          <p class="text-sm font-semibold tabular-nums shrink-0" :class="item.kind === 'expense' ? 'text-rose-500' : item.kind === 'income' ? 'text-emerald-500' : 'text-sky-500'"
+                            x-text="(item.kind === 'income' ? '+' : item.kind === 'expense' ? '-' : '↔ ') + fmt(item.rec.amount)"></p>
+                        </div>
+                      </template>
+                      <template x-if="group.key === 'cuentas'">
+                        <div class="flex items-center justify-between gap-3">
+                          <p class="text-sm font-medium truncate" x-text="item.name"></p>
+                          <p class="text-sm font-semibold tabular-nums shrink-0" x-text="fmt(item.balance)"></p>
+                        </div>
+                      </template>
+                      <template x-if="group.key === 'categorias'">
+                        <p class="text-sm font-medium truncate" x-text="item.label"></p>
+                      </template>
+                      <template x-if="group.key === 'movimientos'">
+                        <p class="text-xs text-slate-400" x-text="formatDate(item.rec.date) + ' · ' + item.acct?.name"></p>
+                      </template>
+                    </div>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div class="px-5 py-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center gap-4 text-[11px] text-slate-400">
+          <span><kbd class="kbd">Enter</kbd> abrir</span>
+          <span><kbd class="kbd">Esc</kbd> cerrar</span>
+          <span class="ml-auto">Atajos: <kbd class="kbd">N</kbd> gasto · <kbd class="kbd">I</kbd> ingreso · <kbd class="kbd">T</kbd> transferencia · <kbd class="kbd">/</kbd> buscar · <kbd class="kbd">Ctrl+Z</kbd> deshacer</span>
+        </div>
+      </div>
+    </div>

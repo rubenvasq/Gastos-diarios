@@ -1,0 +1,46 @@
+    <!-- ============ MODAL: META ============ -->
+    <div x-show="goalModalOpen" x-cloak class="fixed inset-0 z-[60] grid place-items-center p-4">
+      <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="goalModalOpen = false"></div>
+      <div x-show="goalModalOpen" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+        role="dialog" aria-modal="true" class="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 shadow-2xl p-6 anim-zoom">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="font-bold flex items-center gap-2"><i data-lucide="target" class="w-5 h-5 text-accent"></i> <span x-text="goalForm.id ? 'Editar meta' : 'Nueva meta'"></span></h3>
+          <button @click="goalModalOpen = false" class="btn-icon w-9 h-9" aria-label="Cerrar"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="form-label">Nombre</label>
+            <input type="text" x-model="goalForm.name" class="field" placeholder="Ej. Fondo de emergencia">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="form-label">Meta total</label>
+              <input type="number" min="0" step="0.01" x-model="goalForm.targetAmount" class="field" placeholder="0">
+            </div>
+            <div>
+              <label class="form-label">Ya ahorrado</label>
+              <input type="number" min="0" step="0.01" x-model="goalForm.savedAmount" class="field" placeholder="0">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="form-label">Fecha límite</label>
+              <input type="date" x-model="goalForm.targetDate" class="field">
+            </div>
+            <div>
+              <label class="form-label">Color</label>
+              <input type="color" x-model="goalForm.color" class="w-full h-11 rounded-2xl border border-slate-200 dark:border-slate-700 cursor-pointer bg-transparent">
+            </div>
+          </div>
+          <div class="grid grid-cols-4 gap-2">
+            <button @click="goalForm.icon = 'target'" class="chip justify-center" :class="goalForm.icon === 'target' ? 'chip-active' : ''"><i data-lucide="target" class="w-4 h-4"></i></button>
+            <button @click="goalForm.icon = 'plane'" class="chip justify-center" :class="goalForm.icon === 'plane' ? 'chip-active' : ''"><i data-lucide="plane" class="w-4 h-4"></i></button>
+            <button @click="goalForm.icon = 'umbrella'" class="chip justify-center" :class="goalForm.icon === 'umbrella' ? 'chip-active' : ''"><i data-lucide="umbrella" class="w-4 h-4"></i></button>
+            <button @click="goalForm.icon = 'piggy-bank'" class="chip justify-center" :class="goalForm.icon === 'piggy-bank' ? 'chip-active' : ''"><i data-lucide="piggy-bank" class="w-4 h-4"></i></button>
+          </div>
+          <button @click="submitGoal" class="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-accent text-white px-4 py-2.5 text-sm font-semibold shadow-lg shadow-accent/30 transition hover:brightness-110 active:scale-[.98]">
+            <span x-text="goalForm.id ? 'Guardar cambios' : 'Crear meta'"></span>
+          </button>
+        </div>
+      </div>
+    </div>

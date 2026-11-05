@@ -1,0 +1,44 @@
+    <!-- ============ MODAL: DEUDA ============ -->
+    <div x-show="debtModalOpen" x-cloak class="fixed inset-0 z-[60] grid place-items-center p-4">
+      <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="debtModalOpen = false"></div>
+      <div x-show="debtModalOpen" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+        role="dialog" aria-modal="true" class="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 shadow-2xl p-6 anim-zoom">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="font-bold flex items-center gap-2"><i data-lucide="banknote" class="w-5 h-5 text-accent"></i> <span x-text="debtForm.id ? 'Editar deuda' : 'Nueva deuda'"></span></h3>
+          <button @click="debtModalOpen = false" class="btn-icon w-9 h-9" aria-label="Cerrar"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="form-label">Nombre</label>
+            <input type="text" x-model="debtForm.name" class="field" placeholder="Ej. Tarjeta de crédito">
+          </div>
+          <div>
+            <label class="form-label">Acreedor</label>
+            <input type="text" x-model="debtForm.creditor" class="field" placeholder="Opcional">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="form-label">Monto original</label>
+              <input type="number" min="0" step="0.01" x-model="debtForm.originalAmount" class="field" placeholder="0">
+            </div>
+            <div>
+              <label class="form-label">Saldo actual</label>
+              <input type="number" min="0" step="0.01" x-model="debtForm.balance" class="field" placeholder="Igual al original">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="form-label">Cuota mensual</label>
+              <input type="number" min="0" step="0.01" x-model="debtForm.quota" class="field" placeholder="0">
+            </div>
+            <div>
+              <label class="form-label">Próximo pago</label>
+              <input type="date" x-model="debtForm.nextDate" class="field">
+            </div>
+          </div>
+          <button @click="submitDebt" class="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-accent text-white px-4 py-2.5 text-sm font-semibold shadow-lg shadow-accent/30 transition hover:brightness-110 active:scale-[.98]">
+            <span x-text="debtForm.id ? 'Guardar cambios' : 'Registrar deuda'"></span>
+          </button>
+        </div>
+      </div>
+    </div>

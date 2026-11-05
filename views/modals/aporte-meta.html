@@ -1,0 +1,32 @@
+    <!-- ============ MODAL: APORTE A META ============ -->
+    <div x-show="goalContribOpen" x-cloak class="fixed inset-0 z-[60] grid place-items-center p-4">
+      <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="goalContribOpen = false"></div>
+      <div x-show="goalContribOpen" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+        role="dialog" aria-modal="true" class="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 shadow-2xl p-6 anim-zoom">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold flex items-center gap-2"><i data-lucide="coins" class="w-5 h-5 text-accent"></i> Movimiento de la meta</h3>
+          <button @click="goalContribOpen = false" class="btn-icon w-9 h-9" aria-label="Cerrar"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="flex gap-2 mb-4">
+          <button @click="goalContribution.withdraw = false" class="flex-1 chip justify-center" :class="!goalContribution.withdraw ? 'chip-active' : ''"><i data-lucide="arrow-down-circle" class="w-4 h-4"></i> Aportar</button>
+          <button @click="goalContribution.withdraw = true" class="flex-1 chip justify-center" :class="goalContribution.withdraw ? 'chip-active' : ''"><i data-lucide="arrow-up-circle" class="w-4 h-4"></i> Retirar</button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="form-label">Cuenta</label>
+            <select x-model="goalContribution.account" class="field">
+              <template x-for="a in activeAccounts" :key="a.id">
+                <option :value="a.id" x-text="a.name"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Monto</label>
+            <input type="number" min="0" step="0.01" x-model="goalContribution.amount" class="field" placeholder="0">
+          </div>
+          <button @click="submitGoalContribution" class="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-accent text-white px-4 py-2.5 text-sm font-semibold shadow-lg shadow-accent/30 transition hover:brightness-110 active:scale-[.98]">
+            <span x-text="goalContribution.withdraw ? 'Registrar retiro' : 'Registrar aporte'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
