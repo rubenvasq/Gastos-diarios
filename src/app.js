@@ -1328,7 +1328,25 @@ document.addEventListener('alpine:init', () => {
       this.fabOpen = false;
       this.tourStep = 0;
       this.tourActive = true;
+      // Bloquea el scroll de la página mientras dura el tutorial: el recorte se
+      // posiciona en coordenadas de viewport (getBoundingClientRect), así que si
+      // el usuario desliza la vista los cuadros quedarían descolocados del elemento.
+      this._lockScroll(true);
       this.$nextTick(() => requestAnimationFrame(() => this._positionTour()));
+    },
+
+    // Congela/descongela el scroll del documento durante el tutorial sin perder
+    // la posición actual (fixar body desplazaría la vista al tope).
+    _lockScroll(on) {
+      const b = document.body;
+      if (on) {
+        this._scrollLockY = window.scrollY;
+        b.style.overflow = 'hidden';
+        b.style.touchAction = 'none';
+      } else {
+        b.style.overflow = '';
+        b.style.touchAction = '';
+      }
     },
 
     tourNext() {
@@ -1340,6 +1358,7 @@ document.addEventListener('alpine:init', () => {
     endTour(completed) {
       this.tourActive = false;
       this.tourRect = null;
+      this._lockScroll(false);
       // Reset defensivo: si algo dejó la ventana desplazada en horizontal, volver a 0
       // para que la vista no quede "corrida" a la izquierda al cerrar el tutorial.
       if (window.scrollX) window.scrollTo(0, window.scrollY);

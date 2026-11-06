@@ -1,7 +1,7 @@
 /* Service Worker (PWA): cache-first para recursos de mismo origen, con
  * actualización en segundo plano y fallback offline. La API del agente es
  * externa y nunca se cachea. Sube VERSION al cambiar la app para invalidar cachés. */
-const VERSION = 'v3.14.0';
+const VERSION = 'v3.14.1';
 const CACHE = `gastosdiarios-${VERSION}`;
 
 const APP_SHELL = [
