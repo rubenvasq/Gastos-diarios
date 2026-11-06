@@ -3,6 +3,9 @@ node_modules/
 Thumbs.db
 *.log
 
+# Capacitor: www/ se regenera con `npm run build` (ver scripts/build-www.mjs)
+www/
+
 # Dev/IDE y tooling de IA (no publicar)
 .claude/
 .agents/

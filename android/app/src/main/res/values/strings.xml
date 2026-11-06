@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GastosDiarios</string>
+    <string name="title_activity_main">GastosDiarios</string>
+    <string name="package_name">com.rubenvasq.gastosdiarios</string>
+    <string name="custom_url_scheme">com.rubenvasq.gastosdiarios</string>
+</resources>

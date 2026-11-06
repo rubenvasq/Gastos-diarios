@@ -27,6 +27,39 @@ const AI_PROXY_URL = 'https://gastos-ai.rubenale0825.workers.dev/openai/v1';
 // siguiente, que tiene su propio cupo. El modelo elegido por el usuario va primero.
 const AI_MODELS = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'];
 
+// Versión de la bienvenida y del tutorial guiado. Súbelas cuando cambien de
+// forma importante: así quienes actualizan la app vuelven a verlos UNA vez
+// (antes quedaban ocultos para siempre por los flags guardados en el WebView).
+const ONBOARDING_VERSION = '2';
+const TOUR_VERSION = '2';
+
+// ¿Estamos dentro del APK/IPA (Capacitor)? En nativo no usamos service worker:
+// los archivos ya están empaquetados y un SW viejo puede servir código obsoleto.
+const NATIVE_APP = typeof window !== 'undefined' && (
+  window.__GD_NATIVE__ === true ||
+  (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
+  (typeof location !== 'undefined' && (
+    location.protocol === 'capacitor:' ||
+    (location.protocol === 'https:' && location.hostname === 'localhost')
+  ))
+);
+
+// La sesión va en sessionStorage (no en localStorage): sobrevive a recargas,
+// pero al cerrar/forzar la app se pide login otra vez. En móvil es lo esperable
+// en una app de finanzas y evita que el APK "se salte" el login para siempre.
+function hasSession() {
+  try { return sessionStorage.getItem('gd-authed') === '1'; } catch { return false; }
+}
+
+function setSession(active) {
+  try {
+    if (active) sessionStorage.setItem('gd-authed', '1');
+    else sessionStorage.removeItem('gd-authed');
+  } catch { /* almacenamiento no disponible: la sesión queda solo en memoria */ }
+  // Limpia el flag persistente de versiones anteriores, que ya no se usa.
+  try { localStorage.removeItem('gd-authed'); } catch { /* ignorar */ }
+}
+
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
@@ -238,7 +271,7 @@ document.addEventListener('alpine:init', () => {
     revealAmounts: false,
 
     // ---- Bienvenida (solo primera instalación) ----
-    onboarded: localStorage.getItem('gd-onboarded') === '1',
+    onboarded: localStorage.getItem('gd-onboarded') === ONBOARDING_VERSION,
     onboardStep: 0,
     onboardSlides: [
       { icon: 'wallet', title: 'Bienvenido a GastosDiarios', text: 'Controla tus finanzas sin complicarte: cuentas, gastos, presupuestos y metas en un solo lugar.' },
@@ -331,7 +364,8 @@ document.addEventListener('alpine:init', () => {
       // Gate de autenticación: pantalla inicial según si ya hay cuenta local
       // y si la sesión sigue activa (flag 'gd-authed' en localStorage).
       this.authScreen = this.hasLocalAccount ? 'login' : 'register';
-      this.authed = this.hasLocalAccount && localStorage.getItem('gd-authed') === '1';
+      this.authed = this.hasLocalAccount && hasSession();
+      setSession(this.authed); // migra/limpia el flag antiguo de localStorage
 
       // Refresca el reloj reactivo cada minuto (tiempos relativos "hace N min").
       setInterval(() => { this._now = Date.now(); }, 60000);
@@ -375,10 +409,17 @@ document.addEventListener('alpine:init', () => {
       window.addEventListener('resize', () => { if (this.tourActive) this._positionTour(); });
       window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.tourActive) this.endTour(false); });
 
-      // PWA / offline: registra el service worker (no rompe nada en http://localhost
-      // ni si el navegador no lo soporta).
+      // PWA / offline: registra el service worker solo en navegador. En el APK
+      // los archivos ya están empaquetados y un SW viejo serviría la versión
+      // anterior del JS tras actualizar (por eso se limpia en index.html).
       if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
+        if (NATIVE_APP) {
+          navigator.serviceWorker.getRegistrations?.()
+            .then((regs) => Promise.all(regs.map((r) => r.unregister())))
+            .catch(() => {});
+        } else {
+          navigator.serviceWorker.register('./sw.js').catch(() => {});
+        }
       }
 
       // Privacidad: auto-lock al cargar si corresponde, y rastreo de actividad.
@@ -1131,9 +1172,17 @@ document.addEventListener('alpine:init', () => {
       // tener tamaño; _chart ignora canvas con offsetParent null).
       this.$nextTick(() => {
         window.scrollTo({ top: 0, behavior: 'auto' });
+        this._scrollActivePillIntoView();
         refreshIcons();
         requestAnimationFrame(() => this.renderCharts());
       });
+    },
+
+    // En móvil la barra de pestañas es angosta: asegura que el pill activo quede
+    // a la vista (centrándolo en su contenedor con scroll-x, sin mover la ventana).
+    _scrollActivePillIntoView() {
+      const active = document.querySelector('[data-tour="tour-nav"] .pill-active');
+      if (active) this._bringTargetIntoView(active);
     },
 
     // Habilita arrastrar con el mouse (click + drag) y la rueda vertical para
@@ -1260,7 +1309,7 @@ document.addEventListener('alpine:init', () => {
 
     _afterSetup() {
       this.$nextTick(() => { refreshIcons(); this.renderCharts(); });
-      if (localStorage.getItem('gd-tour-done') !== '1') {
+      if (localStorage.getItem('gd-tour-done') !== TOUR_VERSION) {
         setTimeout(() => this.startTour(), 400);
       }
     },
@@ -1291,7 +1340,13 @@ document.addEventListener('alpine:init', () => {
     endTour(completed) {
       this.tourActive = false;
       this.tourRect = null;
-      localStorage.setItem('gd-tour-done', '1');
+      // Reset defensivo: si algo dejó la ventana desplazada en horizontal, volver a 0
+      // para que la vista no quede "corrida" a la izquierda al cerrar el tutorial.
+      if (window.scrollX) window.scrollTo(0, window.scrollY);
+      // La barra de pestañas pudo quedar desplazada (el tour resaltó pills del final):
+      // vuelve a mostrar el pill activo de la vista actual.
+      this.$nextTick(() => this._scrollActivePillIntoView());
+      localStorage.setItem('gd-tour-done', TOUR_VERSION);
       if (completed) this.notify('✓ Tutorial completado. ¡Listo para empezar!');
     },
 
@@ -1301,12 +1356,31 @@ document.addEventListener('alpine:init', () => {
       const step = this.tourSteps[this.tourStep];
       const el = step && document.querySelector(step.target);
       if (!el) { this.endTour(false); return; }
-      el.scrollIntoView({ block: 'nearest', inline: 'center' });
+      this._bringTargetIntoView(el);
       requestAnimationFrame(() => {
         const r = el.getBoundingClientRect();
         this.tourRect = { top: r.top, left: r.left, width: r.width, height: r.height };
         this._positionTourCard(step);
       });
+    },
+
+    // Trae el elemento resaltado a la vista SIN desplazar la ventana en horizontal.
+    // El scroll horizontal se aplica únicamente al contenedor con overflow-x (la
+    // barra de pestañas); mover la ventana entera era lo que "corría" toda la vista
+    // a la izquierda al resaltar el pill "Asistente IA" (fuera de pantalla en móvil).
+    _bringTargetIntoView(el) {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); // solo vertical en la práctica
+      let p = el.parentElement;
+      while (p && p !== document.body) {
+        const ox = getComputedStyle(p).overflowX;
+        if ((ox === 'auto' || ox === 'scroll') && p.scrollWidth > p.clientWidth) {
+          const er = el.getBoundingClientRect();
+          const pr = p.getBoundingClientRect();
+          p.scrollLeft += (er.left + er.width / 2) - (pr.left + pr.width / 2);
+          break;
+        }
+        p = p.parentElement;
+      }
     },
 
     _positionTourCard(step) {
@@ -1739,7 +1813,7 @@ document.addEventListener('alpine:init', () => {
     // ============================================================
     finishOnboarding() {
       this.onboarded = true;
-      localStorage.setItem('gd-onboarded', '1');
+      localStorage.setItem('gd-onboarded', ONBOARDING_VERSION);
       this.authScreen = this.hasLocalAccount ? 'login' : 'register';
     },
 
@@ -1804,7 +1878,7 @@ document.addEventListener('alpine:init', () => {
 
     completeLogin() {
       this.authed = true;
-      localStorage.setItem('gd-authed', '1');
+      setSession(true);
       this.recoveryCodeToShow = '';
       this.authForm = { username: '', password: '', password2: '', recoveryCode: '', newPassword: '' };
       // Empecemos + tutorial guiado: solo la primera vez, tras un registro nuevo
@@ -1812,6 +1886,10 @@ document.addEventListener('alpine:init', () => {
       if (this._freshRegistration) {
         this._freshRegistration = false;
         setTimeout(() => this.startSetup(), 400);
+      } else if (localStorage.getItem('gd-tour-done') !== TOUR_VERSION) {
+        // Usuarios que ya tenían cuenta (o que instalan una versión nueva) también
+        // ven el tutorial una vez: antes solo se mostraba tras registrarse.
+        setTimeout(() => this.startTour(), 600);
       }
     },
 
@@ -1825,7 +1903,7 @@ document.addEventListener('alpine:init', () => {
 
     logout() {
       this.authed = false;
-      localStorage.removeItem('gd-authed');
+      setSession(false);
       this.authScreen = 'login';
       this.profileOpen = false;
       this.notify('Sesión cerrada.');

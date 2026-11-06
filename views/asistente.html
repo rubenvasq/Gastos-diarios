@@ -54,8 +54,9 @@
             </div>
           </details>
 
-          <!-- Chat -->
-          <div class="card p-0 overflow-hidden flex flex-col" style="height: min(70vh, 640px)">
+          <!-- Chat: altura flexible con dvh (se adapta al alto real del viewport,
+               p. ej. cuando el teclado reduce el área visible en móvil). -->
+          <div class="card p-0 overflow-hidden flex flex-col" style="height: min(70dvh, 640px); min-height: 20rem">
             <!-- Mensajes -->
             <div id="chat-scroll" class="flex-1 overflow-y-auto p-4 space-y-4">
               <!-- Estado vacío con sugerencias -->
@@ -100,8 +101,9 @@
             <!-- Error -->
             <div x-show="chatError" x-cloak class="px-4 py-2 text-xs text-rose-500 bg-rose-500/10 border-t border-rose-500/20" x-text="chatError"></div>
 
-            <!-- Entrada -->
-            <form @submit.prevent="sendToAgent()" class="border-t border-slate-200/70 dark:border-slate-700/60 p-3 flex items-end gap-2">
+            <!-- Entrada: safe-area inferior para que el botón de enviar no quede
+                 pegado/cortado por la barra de navegación del sistema en móvil. -->
+            <form @submit.prevent="sendToAgent()" class="border-t border-slate-200/70 dark:border-slate-700/60 p-3 flex items-end gap-2" style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom))">
               <input
                 type="text"
                 x-model="chatInput"

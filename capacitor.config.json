@@ -1,0 +1,13 @@
+{
+  "appId": "com.rubenvasq.gastosdiarios",
+  "appName": "GastosDiarios",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}

@@ -57,6 +57,36 @@
 
   <link rel="stylesheet" href="styles/main.css">
 
+  <!-- En la app nativa (Capacitor) los archivos ya viajan dentro del APK: el
+       service worker no aporta nada y puede seguir sirviendo el JS/HTML de una
+       instalación anterior tras actualizar. Lo desregistramos y limpiamos sus
+       cachés antes de cargar la app. Si esta carga estaba controlada por un SW
+       viejo, recargamos una vez para usar el código del APK nuevo. -->
+  <script>
+    (function () {
+      var cap = window.Capacitor;
+      var native = (cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform())
+        || location.protocol === 'capacitor:'
+        || (location.protocol === 'https:' && location.hostname === 'localhost');
+      if (!native) return;
+      window.__GD_NATIVE__ = true;
+      if (!('serviceWorker' in navigator)) return;
+
+      var cleanup = navigator.serviceWorker.getRegistrations()
+        .then(function (regs) { return Promise.all(regs.map(function (r) { return r.unregister(); })); })
+        .then(function () { return window.caches ? caches.keys() : []; })
+        .then(function (keys) { return Promise.all((keys || []).map(function (k) { return caches.delete(k); })); })
+        .catch(function () {});
+
+      try {
+        if (navigator.serviceWorker.controller && !sessionStorage.getItem('gd-sw-cleaned')) {
+          sessionStorage.setItem('gd-sw-cleaned', '1');
+          cleanup.then(function () { location.reload(); });
+        }
+      } catch (e) { /* sin sessionStorage: seguimos sin recargar */ }
+    })();
+  </script>
+
   <!-- App (módulo): importa y arranca Alpine tras precargar IndexedDB. Lucide y Chart.js vendorizados. -->
   <script type="module" src="src/app.js"></script>
   <script defer src="vendor/lucide.min.js"></script>
@@ -410,22 +440,22 @@
     </aside>
 
     <!-- ============ CONTENIDO ============ -->
-    <div :class="sidebarCollapsed ? 'lg:pl-[84px]' : 'lg:pl-[264px]'">
+    <div class="app-content" :class="sidebarCollapsed ? 'lg:pl-[84px]' : 'lg:pl-[264px]'">
 
       <!-- Contenedor principal (shell): blanco-grisáceo, esquinas redondeadas -->
       <div class="app-shell m-3 lg:my-4 lg:ml-2 lg:mr-4 overflow-hidden min-h-[calc(100dvh-1.5rem)]">
 
       <!-- Topbar -->
-      <header class="app-topbar relative z-30 flex items-center gap-3 h-[76px] px-4 lg:px-6">
+      <header class="app-topbar relative z-30 flex items-center gap-2 lg:gap-3 h-[76px] px-4 lg:px-6">
         <button @click="sidebarOpen = true" class="circle-btn w-10 h-10 lg:hidden shrink-0" aria-label="Abrir menú">
           <i data-lucide="menu" class="w-5 h-5"></i>
         </button>
 
         <!-- Pestañas tipo pill (navegación principal) -->
         <nav class="flex-1 min-w-0 overflow-x-auto no-scrollbar cursor-grab" x-init="dragScroll($el)" data-tour="tour-nav">
-          <div class="flex items-center gap-2 w-max">
+          <div class="flex items-center gap-2 w-max px-0.5 py-1">
             <template x-for="nav in navItems" :key="nav.id">
-              <button @click="goTo(nav.id)" class="pill" :class="(view === nav.id && !showConfig) ? 'pill-active' : ''" :data-tour="nav.id === 'asistente' ? 'tour-ai' : null">
+              <button @click="goTo(nav.id)" class="pill shrink-0" :class="(view === nav.id && !showConfig) ? 'pill-active' : ''" :data-tour="nav.id === 'asistente' ? 'tour-ai' : null">
                 <i :data-lucide="nav.icon" class="w-4 h-4"></i>
                 <span x-text="nav.label"></span>
               </button>
@@ -449,7 +479,7 @@
             <i x-show="!isDark" data-lucide="moon" class="w-[18px] h-[18px]"></i>
             <i x-show="isDark" data-lucide="sun" class="w-[18px] h-[18px]"></i>
           </button>
-          <button @click="openConfig" class="circle-btn w-10 h-10" aria-label="Configuración" data-tour="tour-settings">
+          <button @click="openConfig" class="circle-btn w-10 h-10 hidden sm:inline-grid" aria-label="Configuración">
             <i data-lucide="settings" class="w-[18px] h-[18px]"></i>
           </button>
 
@@ -483,7 +513,7 @@
 
         <!-- Perfil -->
         <div class="relative">
-          <button @click="profileOpen = !profileOpen; notifOpen = false" class="flex items-center gap-2.5 rounded-full p-1 sm:pr-3 transition hover:bg-[color:var(--surface-2)] active:scale-95">
+          <button @click="profileOpen = !profileOpen; notifOpen = false" data-tour="tour-settings" class="flex items-center gap-2.5 rounded-full p-1 sm:pr-3 transition hover:bg-[color:var(--surface-2)] active:scale-95">
             <span class="w-9 h-9 rounded-full grid place-items-center bg-accent text-white text-sm font-bold shrink-0">
               <span x-text="config.brand.name.slice(0, 2).toUpperCase()"></span>
             </span>
@@ -545,7 +575,7 @@
     </div>
 
     <!-- ============ BOTÓN FLOTANTE (FAB) ============ -->
-    <div id="fab" class="fixed bottom-7 right-7 z-40 flex flex-col items-end">
+    <div id="fab" x-show="!(view === 'asistente' && !showConfig)" class="fixed bottom-7 right-7 z-40 flex flex-col items-end">
       <div x-show="fabOpen" x-cloak @click.outside="fabOpen = false"
         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2 scale-95" x-transition:enter-end="opacity-100 translate-y-0 scale-100"
         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"

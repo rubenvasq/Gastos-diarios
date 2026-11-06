@@ -3,9 +3,12 @@ main = "worker.js"
 compatibility_date = "2024-11-01"
 
 # Orígenes permitidos para CORS (separados por comas). Producción (GitHub Pages)
-# + desarrollo local. Así solo tu sitio y tu máquina pueden usar el proxy.
+# + desarrollo local + app móvil (WebView de Capacitor: Android usa https://localhost,
+# iOS usa capacitor://localhost). Así solo tu sitio, tu máquina y tu app usan el proxy.
+# NOTA: en la app móvil las llamadas van por HTTP nativo (CapacitorHttp), que NO está
+# sujeto a CORS; estos orígenes son por si se usa el WebView sin ese plugin.
 [vars]
-ALLOWED_ORIGIN = "https://rubenvasq.github.io,http://localhost:3000"
+ALLOWED_ORIGIN = "https://rubenvasq.github.io,http://localhost:3000,https://localhost,capacitor://localhost"
 
 # La API key de Groq NO va aquí. Se guarda como secret (encriptada) con:
 #   wrangler secret put GROQ_KEY

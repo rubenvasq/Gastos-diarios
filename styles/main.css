@@ -62,9 +62,13 @@
 }
 
 /* Fondo y color de texto base controlados por la paleta (exactitud cromática) */
-body {
+html, body {
   background-color: var(--bg);
   color: var(--text);
+  /* Nunca permitir scroll horizontal del documento: en móvil un elemento que se
+     pasa de ancho (o scrollIntoView del tutorial) no debe desplazar toda la vista. */
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 /* Selección de texto con el morado de marca */
@@ -222,8 +226,11 @@ input[type="color"] {
 .circle-btn:hover { color: var(--text); background: var(--border); }
 .circle-btn:active { transform: scale(.94); }
 
-/* Matriz de gasto (heatmap de círculos) */
-.heat-dot { width: 2.25rem; height: 2.25rem; border-radius: 999px; background: var(--dot-0); }
+/* Matriz de gasto (heatmap de círculos).
+   Responsivo: cada punto llena su columna de la grilla (grid-cols-7) con tope de
+   2.25rem en pantallas anchas. Así nunca desborda el ancho de la tarjeta en móvil
+   y las columnas coinciden EXACTAMENTE con el encabezado de días (D L M M J V S). */
+.heat-dot { width: 100%; max-width: 2.25rem; aspect-ratio: 1 / 1; border-radius: 999px; background: var(--dot-0); justify-self: center; }
 .heat-dot.l1 { background: var(--dot-1); }
 .heat-dot.l2 { background: var(--dot-2); }
 .heat-dot.l3 { background: var(--dot-3); }
@@ -327,13 +334,22 @@ input[type="color"] {
 .auth-cta:disabled { opacity: .6; cursor: not-allowed; }
 
 /* Safe-area (notch / home indicator) para la PWA en móvil. En escritorio vale 0. */
-.app-topbar { padding-top: env(safe-area-inset-top); }
+/* Header con fondo sólido: al hacer scroll, el contenido no se transparenta bajo
+   la barra de estado de Android (la safe-area empuja el contenido hacia abajo y el
+   fondo sólido tapa cualquier filtración). */
+.app-topbar {
+  padding-top: env(safe-area-inset-top);
+  background: var(--panel);
+}
+/* Empuja todo el shell por debajo de la barra de estado en móvil (0 en escritorio). */
+.app-content { padding-top: env(safe-area-inset-top); }
 .app-sidebar {
   padding-top: env(safe-area-inset-top);
   padding-left: env(safe-area-inset-left);
 }
 .app-main {
-  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  /* Deja aire suficiente para que el FAB (56px + offset) no tape el contenido. */
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom));
 }
 #fab {
   margin-bottom: env(safe-area-inset-bottom);
